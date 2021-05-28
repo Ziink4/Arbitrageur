@@ -60,7 +60,7 @@ async def request_all_pages(url_path: str):
     page_total, items = await request_page(url_path, page_no=0)
 
     tasks = [request_page(url_path, page_no) for page_no in range(1, page_total)]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
+    results = await asyncio.gather(*tasks)
 
     for _, items_in_page in results:
         items += items_in_page
