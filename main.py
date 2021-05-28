@@ -2,7 +2,9 @@ import asyncio
 from pathlib import Path
 
 from arbitrageur.crafting import CraftingOptions
-from arbitrageur.request import request_cached_pages
+from arbitrageur.items import Item
+from arbitrageur.recipes import Recipe, RecipeIngredient
+from arbitrageur.request import request_cached_pages, request_all_pages
 
 FILTER_DISCIPLINES = [
     "Armorsmith",
@@ -32,13 +34,29 @@ async def main():
     print(f"""Loaded {len(items)} items""")
 
     print("Parsing JSON data")
-    recipes_map = {recipe.output_item_id: recipe for recipe in recipes}
-    items_map = {item.id: item for item in items}
+    recipes_map = {recipe["output_item_id"]: Recipe(id=recipe["id"],
+                                                    type_name=recipe["type"],
+                                                    output_item_id=recipe["output_item_id"],
+                                                    output_item_count=recipe["output_item_count"],
+                                                    time_to_craft_ms=recipe["time_to_craft_ms"],
+                                                    disciplines=recipe["disciplines"],
+                                                    min_rating=recipe["min_rating"],
+                                                    flags=recipe["flags"],
+                                                    ingredients=[RecipeIngredient(item_id=i["item_id"],
+                                                                                  count=i["count"]) for i in
+                                                                 recipe["ingredients"]],
+                                                    chat_link=recipe["chat_link"]) for recipe in recipes}
+
+    items_map = {item["id"]: item for item in items}
 
     crafting_options = CraftingOptions(
         include_time_gated=True,
         include_ascended=True,
         count=None)
+
+    print("Loading trading post prices")
+    tp_prices = await request_all_pages("commerce/prices")
+    print(f"""Loaded {len(tp_prices)} trading post prices""")
 
 
 if __name__ == "__main__":
