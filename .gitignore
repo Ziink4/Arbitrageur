@@ -115,3 +115,7 @@ dmypy.json
 
 # PyCharm
 .idea/
+
+# Ignore arbitrageur cache files
+items.json
+recipes.json
