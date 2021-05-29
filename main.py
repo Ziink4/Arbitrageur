@@ -1,6 +1,6 @@
 import asyncio
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 from arbitrageur.crafting import CraftingOptions, calculate_estimated_min_crafting_cost
 from arbitrageur.items import Item, ItemUpgrade, is_restricted
@@ -23,25 +23,10 @@ FILTER_DISCIPLINES = [
 ITEM_STACK_SIZE = 250  # GW2 uses a "stack size" of 250
 
 
-def collect_ingredient_ids(item_id: int, recipes_map: Dict[int, Recipe]):
-    ids = []
-    recipe = recipes_map.get(item_id)
-    if recipe:
-        for ingredient in recipe.ingredients:
-            ids.append(ingredient.item_id)
-            ids += collect_ingredient_ids(ingredient.item_id, recipes_map)
-
-    return ids
-
-
-async def main():
-    recipes_path = Path("recipes.json")
-    items_path = Path("items.json")
-
+async def retrieve_recipes(recipes_path: Path) -> Dict[int, Recipe]:
     print("Loading recipes")
     recipes = await request_cached_pages(recipes_path, "recipes")
     print(f"""Loaded {len(recipes)} recipes""")
-
     print("Parsing recipes data")
     recipes_map = {recipe["output_item_id"]: Recipe(id=recipe["id"],
                                                     type_name=recipe["type"],
@@ -55,11 +40,13 @@ async def main():
                                                                                   count=i["count"]) for i in
                                                                  recipe["ingredients"]],
                                                     chat_link=recipe["chat_link"]) for recipe in recipes}
+    return recipes_map
 
+
+async def retrieve_items(items_path: Path) -> Dict[int, Item]:
     print("Loading items")
     items = await request_cached_pages(items_path, "items")
     print(f"""Loaded {len(items)} items""")
-
     print("Parsing items data")
     items_map = {item["id"]: Item(id=item["id"],
                                   chat_link=item["chat_link"],
@@ -80,27 +67,40 @@ async def main():
                                   upgrades_from=None if "upgrades_from" not in item else [
                                       ItemUpgrade(item_id=i["item_id"], upgrade=i["upgrade"]) for i in
                                       item["upgrades_from"]]) for item in items}
+    return items_map
 
-    crafting_options = CraftingOptions(
-        include_time_gated=True,
-        include_ascended=True,
-        count=None)
 
+async def retrieve_tp_prices() -> Dict[int, Price]:
     print("Loading trading post prices")
     tp_prices = await request_all_pages("commerce/prices")
     print(f"""Loaded {len(tp_prices)} trading post prices""")
-
     print("Parsing trading post prices data")
     tp_prices_map = {price["id"]: Price(id=price["id"],
                                         buys=PriceInfo(unit_price=price["buys"]["unit_price"],
                                                        quantity=price["buys"]["quantity"]),
                                         sells=PriceInfo(unit_price=price["sells"]["unit_price"],
                                                         quantity=price["sells"]["quantity"])) for price in tp_prices}
+    return tp_prices_map
 
+
+def collect_ingredient_ids(item_id: int, recipes_map: Dict[int, Recipe]) -> List[int]:
+    ids = []
+    recipe = recipes_map.get(item_id)
+    if recipe:
+        for ingredient in recipe.ingredients:
+            ids.append(ingredient.item_id)
+            ids += collect_ingredient_ids(ingredient.item_id, recipes_map)
+
+    return ids
+
+
+def calculate_profitable_items(crafting_options: CraftingOptions,
+                               items_map: Dict[int, Item],
+                               recipes_map: Dict[int, Recipe],
+                               tp_prices_map: Dict[int, Price]) -> Tuple[List[int], List[int]]:
     print("Computing profitable item list")
     profitable_item_ids = []
     ingredient_ids = []
-
     for item_id, recipe in recipes_map.items():
         item = items_map.get(item_id)
         if item is not None:
@@ -108,6 +108,7 @@ async def main():
             if is_restricted(item):
                 continue
 
+        # Check if any of the disciplines we want to use can craft the item
         has_discipline = any(discipline in recipe.disciplines for discipline in FILTER_DISCIPLINES)
         if not has_discipline:
             continue
@@ -129,6 +130,27 @@ async def main():
             if effective_buy_price(tp_prices.buys.unit_price) > crafting_cost.cost:
                 profitable_item_ids.append(item_id)
                 ingredient_ids += collect_ingredient_ids(item_id, recipes_map)
+    return ingredient_ids, profitable_item_ids
+
+
+async def main():
+    recipes_path = Path("recipes.json")
+    items_path = Path("items.json")
+
+    recipes_map = await retrieve_recipes(recipes_path)
+    items_map = await retrieve_items(items_path)
+
+    crafting_options = CraftingOptions(
+        include_time_gated=True,
+        include_ascended=True,
+        count=None)
+
+    tp_prices_map = await retrieve_tp_prices()
+
+    ingredient_ids, profitable_item_ids = calculate_profitable_items(crafting_options,
+                                                                     items_map,
+                                                                     recipes_map,
+                                                                     tp_prices_map)
 
     print("Loading detailed trading post listings")
     request_listing_item_ids = set(profitable_item_ids)
