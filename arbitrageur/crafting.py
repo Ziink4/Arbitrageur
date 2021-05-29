@@ -135,26 +135,32 @@ def calculate_precise_min_crafting_cost(
     assert item_id in items_map
     item = items_map.get(item_id)
 
-    assert item_id in recipes_map
-    recipe = recipes_map.get(item_id)
-
-    if recipe.output_item_count is None:
-        output_item_count = 1
-    else:
-        output_item_count = recipe.output_item_count
-
     tp_purchases_ptr = len(tp_purchases)
     crafting_steps_before = crafting_steps
 
-    crafting_cost, tp_purchases, crafting_steps = calculate_precise_min_crafting_cost_internal(recipe,
-                                                                                               output_item_count,
-                                                                                               recipes_map, items_map,
-                                                                                               tp_listings_map,
-                                                                                               tp_purchases,
-                                                                                               crafting_steps, opt)
+    if item_id not in recipes_map:
+        crafting_cost = None
+    else:
+        recipe = recipes_map[item_id]
 
-    assert item_id in tp_listings_map
-    tp_cost = tp_listings_map.get(item_id).lowest_sell_offer(1)
+        if recipe.output_item_count is None:
+            output_item_count = 1
+        else:
+            output_item_count = recipe.output_item_count
+
+        crafting_cost, tp_purchases, crafting_steps = calculate_precise_min_crafting_cost_internal(recipe,
+                                                                                                   output_item_count,
+                                                                                                   recipes_map,
+                                                                                                   items_map,
+                                                                                                   tp_listings_map,
+                                                                                                   tp_purchases,
+                                                                                                   crafting_steps,
+                                                                                                   opt)
+
+    if item_id in tp_listings_map:
+        tp_cost = tp_listings_map.get(item_id).lowest_sell_offer(1)
+    else:
+        tp_cost = None
 
     vendor_cost = calculate_vendor_cost(item, opt)
 
