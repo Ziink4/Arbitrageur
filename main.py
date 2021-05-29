@@ -187,6 +187,8 @@ async def main():
                                                        crafting_options)
         profitable_items.append(profitable_item)
 
+    profitable_items.sort(key=lambda pi: pi.profit)
+
     print("TODO : ??? PROFIT")
 
 
