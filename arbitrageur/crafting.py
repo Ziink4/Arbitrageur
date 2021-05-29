@@ -150,17 +150,8 @@ def calculate_precise_min_crafting_cost(
     else:
         vendor_cost = vendor_price(item)
 
-    cost = inner_min(inner_min(tp_cost, crafting_cost), vendor_cost)
-
-    # give trading post precedence over crafting if costs are equal
-    if tp_cost is not None:
-        source = Source.TradingPost
-    elif crafting_cost is not None:
-        source = Source.Crafting
-    else:
-        source = Source.Vendor
-
-    if source != Source.Crafting:
+    lowest_cost = select_lowest_cost(crafting_cost, tp_cost, vendor_cost)
+    if lowest_cost.source != Source.Crafting:
         # Rollback crafting
         tp_purchases = tp_purchases[:tp_purchases_ptr]
         crafting_steps = crafting_steps_before
@@ -169,7 +160,7 @@ def calculate_precise_min_crafting_cost(
         # itself is also included in the crafting step count.
         crafting_steps += Fraction(1, output_item_count)
 
-    return CraftingCost(cost, source), tp_purchases, crafting_steps
+    return lowest_cost, tp_purchases, crafting_steps
 
 
 def calculate_crafting_profit(
@@ -237,6 +228,19 @@ def calculate_crafting_profit(
         count=crafting_count), purchased_ingredients
 
 
+def select_lowest_cost(crafting_cost: Optional[int],
+                       tp_cost: Optional[int],
+                       vendor_cost: Optional[int]) -> CraftingCost:
+    cost = inner_min(inner_min(tp_cost, crafting_cost), vendor_cost)
+    # give trading post precedence over crafting if costs are equal
+    if tp_cost is not None:
+        source = Source.TradingPost
+    elif crafting_cost is not None:
+        source = Source.Crafting
+    else:
+        source = Source.Vendor
+    return CraftingCost(cost, source)
+
 # Calculate the lowest cost method to obtain the given item, using only the current high/low tp prices.
 # This may involve a combination of crafting, trading and buying from vendors.
 def calculate_estimated_min_crafting_cost(
@@ -290,14 +294,4 @@ def calculate_estimated_min_crafting_cost(
     else:
         vendor_cost = vendor_price(item)
 
-    cost = inner_min(inner_min(tp_cost, crafting_cost), vendor_cost)
-
-    # give trading post precedence over crafting if costs are equal
-    if tp_cost is not None:
-        source = Source.TradingPost
-    elif crafting_cost is not None:
-        source = Source.Crafting
-    else:
-        source = Source.Vendor
-
-    return CraftingCost(cost, source)
+    return select_lowest_cost(crafting_cost, tp_cost, vendor_cost)
