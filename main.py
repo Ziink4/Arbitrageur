@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 
 from arbitrageur.crafting import CraftingOptions
-from arbitrageur.items import Item
+from arbitrageur.items import Item, ItemUpgrade
 from arbitrageur.recipes import Recipe, RecipeIngredient
 from arbitrageur.request import request_cached_pages, request_all_pages
 
@@ -47,7 +47,25 @@ async def main():
                                                                  recipe["ingredients"]],
                                                     chat_link=recipe["chat_link"]) for recipe in recipes}
 
-    items_map = {item["id"]: item for item in items}
+    items_map = {item["id"]: Item(id=item["id"],
+                                  chat_link=item["chat_link"],
+                                  name=item["name"],
+                                  icon=item.get("icon"),
+                                  description=item.get("description"),
+                                  type_name=item["type"],
+                                  rarity=item["rarity"],
+                                  level=item["level"],
+                                  vendor_value=item["vendor_value"],
+                                  default_skin=item.get("default_skin"),
+                                  flags=item["flags"],
+                                  game_types=item["game_types"],
+                                  restrictions=item["restrictions"],
+                                  upgrades_into=None if "upgrades_into" not in item else [
+                                      ItemUpgrade(item_id=i["item_id"], upgrade=i["upgrade"]) for i in
+                                      item["upgrades_into"]],
+                                  upgrades_from=None if "upgrades_from" not in item else [
+                                      ItemUpgrade(item_id=i["item_id"], upgrade=i["upgrade"]) for i in
+                                      item["upgrades_from"]]) for item in items}
 
     crafting_options = CraftingOptions(
         include_time_gated=True,
