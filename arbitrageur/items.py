@@ -27,7 +27,7 @@ class Item(NamedTuple):
 def vendor_price(item: Item) -> Optional[int]:
     name = item.name
 
-    if any(name == "Thermocatalytic Reagent",
+    if any([name == "Thermocatalytic Reagent",
            name == "Spool of Jute Thread",
            name == "Spool of Wool Thread",
            name == "Spool of Cotton Thread",
@@ -50,7 +50,7 @@ def vendor_price(item: Item) -> Optional[int]:
            name == "Milling Basin",
            name == "Crystalline Bottle",
            name == "Bag of Mortar",
-           name == "Essence of Elegance"):
+           name == "Essence of Elegance"]):
         if item.vendor_value > 0:
             # standard vendor sell price is generally buy price * 8, see:
             # https://forum-en.gw2archive.eu/forum/community/api/How-to-get-the-vendor-sell-price
@@ -68,13 +68,13 @@ def vendor_price(item: Item) -> Optional[int]:
 
 
 def is_restricted(item: Item) -> bool:
-    return any(item.id == 24749,  # legacy Major Rune of the Air
+    return any([item.id == 24749,  # legacy Major Rune of the Air
                item.id == 76363,  # legacy catapult schematic
-               any(flag == "AccountBound" or flag == "SoulbindOnAcquire" for flag in item.flags))
+               any(flag == "AccountBound" or flag == "SoulbindOnAcquire" for flag in item.flags)])
 
 
 def is_common_ascended_material(item: Item) -> bool:
     name = item.name
-    return any(name == "Empyreal Fragment",
+    return any([name == "Empyreal Fragment",
                name == "Dragonite Ore",
-               name == "Pile of Bloodstone Dust")
+               name == "Pile of Bloodstone Dust"])
