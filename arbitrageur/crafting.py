@@ -263,10 +263,12 @@ def calculate_estimated_min_crafting_cost(
                 tp_prices_map,
                 opt)
 
-            if ingredient_cost is not None:
-                cost += ingredient_cost.cost * ingredient.count
-            else:
+            if ingredient_cost is None:
                 return None
+            elif ingredient_cost.cost is None:
+                return None
+            else:
+                cost += ingredient_cost.cost * ingredient.count
 
         if recipe.output_item_count is None:
             output_item_count = 1
