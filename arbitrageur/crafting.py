@@ -91,6 +91,9 @@ def calculate_precise_min_crafting_cost_internal(
         if ingredient_cost is None:
             return None, tp_purchases, crafting_steps
 
+        if ingredient_cost.cost is None:
+            return None, tp_purchases, crafting_steps
+
         # NB: The trading post prices won't be completely accurate, because the reductions
         # in liquidity for ingredients are deferred until the parent recipe is fully completed.
         # This is to allow trading post purchases to be 'rolled back' if crafting a parent
@@ -106,7 +109,7 @@ def calculate_precise_min_crafting_cost_internal(
             crafting_steps = crafting_steps_before_ingredient + (
                     crafting_steps - crafting_steps_before_ingredient) * ingredient.count / output_item_count
 
-        cost += ingredient_cost * ingredient.count
+        cost += ingredient_cost.cost * ingredient.count
 
     return div_int_ceil(cost, output_item_count), tp_purchases, crafting_steps
 
