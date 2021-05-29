@@ -23,5 +23,5 @@ if __name__ == "__main__":
     # Test effective buy price
     p = Price(143, PriceInfo(12, 1), PriceInfo(0, 0))
     print(p)
-    ep = effective_buy_price(p)
+    ep = effective_buy_price(p.buys.unit_price)
     print(ep)
