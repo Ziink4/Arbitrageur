@@ -111,6 +111,14 @@ def calculate_precise_min_crafting_cost_internal(
     return div_int_ceil(cost, output_item_count), tp_purchases, crafting_steps
 
 
+def calculate_vendor_cost(item, opt):
+    if opt.include_ascended and is_common_ascended_material(item):
+        vendor_cost = 0
+    else:
+        vendor_cost = vendor_price(item)
+    return vendor_cost
+
+
 # Calculate the lowest cost method to obtain the given item, with simulated purchases from
 # the trading post.
 def calculate_precise_min_crafting_cost(
@@ -145,10 +153,7 @@ def calculate_precise_min_crafting_cost(
     assert item_id in tp_listings_map
     tp_cost = tp_listings_map.get(item_id).lowest_sell_offer(1)
 
-    if opt.include_ascended and is_common_ascended_material(item):
-        vendor_cost = 0
-    else:
-        vendor_cost = vendor_price(item)
+    vendor_cost = calculate_vendor_cost(item, opt)
 
     lowest_cost = select_lowest_cost(crafting_cost, tp_cost, vendor_cost)
     if lowest_cost.source != Source.Crafting:
@@ -290,9 +295,6 @@ def calculate_estimated_min_crafting_cost(
     else:
         tp_cost = price.sells.unit_price
 
-    if opt.include_ascended and is_common_ascended_material(item):
-        vendor_cost = 0
-    else:
-        vendor_cost = vendor_price(item)
+    vendor_cost = calculate_vendor_cost(item, opt)
 
     return select_lowest_cost(crafting_cost, tp_cost, vendor_cost)
