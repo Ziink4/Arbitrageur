@@ -104,7 +104,7 @@ def calculate_precise_min_crafting_cost_internal(
             tp_purchases = tp_purchases[:tp_purchases_ingredient_ptr] + new_purchases
 
             crafting_steps = crafting_steps_before_ingredient + (
-                        crafting_steps - crafting_steps_before_ingredient) * ingredient.count / output_item_count
+                    crafting_steps - crafting_steps_before_ingredient) * ingredient.count / output_item_count
 
         cost += ingredient_cost * ingredient.count
 
@@ -240,6 +240,7 @@ def select_lowest_cost(crafting_cost: Optional[int],
     else:
         source = Source.Vendor
     return CraftingCost(cost, source)
+
 
 # Calculate the lowest cost method to obtain the given item, using only the current high/low tp prices.
 # This may involve a combination of crafting, trading and buying from vendors.
