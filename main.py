@@ -2,8 +2,9 @@ import asyncio
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from arbitrageur.crafting import CraftingOptions, calculate_estimated_min_crafting_cost
+from arbitrageur.crafting import CraftingOptions, calculate_estimated_min_crafting_cost, calculate_crafting_profit
 from arbitrageur.items import Item, ItemUpgrade, is_restricted
+from arbitrageur.listings import ItemListings, Listing
 from arbitrageur.prices import Price, PriceInfo, effective_buy_price
 from arbitrageur.recipes import Recipe, RecipeIngredient
 from arbitrageur.request import request_cached_pages, request_all_pages, fetch_item_listings
@@ -133,6 +134,23 @@ def calculate_profitable_items(crafting_options: CraftingOptions,
     return ingredient_ids, profitable_item_ids
 
 
+async def retrieve_detailed_tp_listings(item_ids: List[int]) -> Dict[int, ItemListings]:
+    print("Loading detailed trading post listings")
+    tp_listings = await fetch_item_listings(item_ids)
+    print(f"""Loaded {len(tp_listings)} detailed trading post listings""")
+    print("Parsing detailed trading post listings data")
+    tp_listings_map = {listings["id"]: ItemListings(id=listings["id"],
+                                                    buys=[Listing(listings=listing["listings"],
+                                                                  unit_price=listing["unit_price"],
+                                                                  quantity=listing["quantity"]) for listing in
+                                                          listings["buys"]],
+                                                    sells=[Listing(listings=listing["listings"],
+                                                                   unit_price=listing["unit_price"],
+                                                                   quantity=listing["quantity"]) for listing in
+                                                           listings["sells"]]) for listings in tp_listings}
+    return tp_listings_map
+
+
 async def main():
     recipes_path = Path("recipes.json")
     items_path = Path("items.json")
@@ -152,13 +170,24 @@ async def main():
                                                                      recipes_map,
                                                                      tp_prices_map)
 
-    print("Loading detailed trading post listings")
     request_listing_item_ids = set(profitable_item_ids)
     request_listing_item_ids.update(ingredient_ids)
-    tp_listings = await fetch_item_listings(list(request_listing_item_ids))
-    print(f"""Loaded {len(tp_listings)} detailed trading post listings""")
+    tp_listings_map = await retrieve_detailed_tp_listings(list(request_listing_item_ids))
 
-    print("TODO : Compute precise crafting profits")
+    print("Computing precise crafting profits")
+    profitable_items = []
+    for item_id in profitable_item_ids:
+        assert item_id in tp_listings_map
+        item_listings = tp_listings_map[item_id]
+        profitable_item, _ = calculate_crafting_profit(item_listings,
+                                                       recipes_map,
+                                                       items_map,
+                                                       tp_listings_map,
+                                                       None,
+                                                       crafting_options)
+        profitable_items.append(profitable_item)
+
+    print("TODO : ??? PROFIT")
 
 
 if __name__ == "__main__":
