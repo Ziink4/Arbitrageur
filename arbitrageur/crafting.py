@@ -269,15 +269,18 @@ def calculate_estimated_min_crafting_cost(
                 opt)
 
             if ingredient_cost is not None:
-                cost += ingredient_cost * ingredient.count
+                cost += ingredient_cost.cost * ingredient.count
             else:
                 return None
 
         crafting_cost = div_int_ceil(cost, output_item_count)
 
     assert item_id in tp_prices_map
-    tp_cost = map(lambda price: price.sells.unit_price,
-                  filter(lambda price: (price.sells.quantity > 0), tp_prices_map.get(item_id)))
+    price = tp_prices_map[item_id]
+    if price.sells.quantity > 0:
+        tp_cost = price.sells.unit_price
+    else:
+        tp_cost = None
 
     if opt.include_ascended and is_common_ascended_material(item):
         vendor_cost = 0
