@@ -1,10 +1,11 @@
 from dataclasses import dataclass
-from typing import NamedTuple, List, Optional
+from typing import List, Optional
 
 from arbitrageur.prices import effective_buy_price
 
 
-class Listing(NamedTuple):
+@dataclass
+class Listing:
     listings: int
     unit_price: int
     quantity: int
