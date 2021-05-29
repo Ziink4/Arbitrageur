@@ -248,15 +248,10 @@ def calculate_estimated_min_crafting_cost(
     assert item_id in items_map
     item = items_map.get(item_id)
 
-    assert item_id in recipes_map
     recipe = recipes_map.get(item_id)
-
-    if recipe.output_item_count is None:
-        output_item_count = 1
-    else:
-        output_item_count = recipe.output_item_count
-
-    if not opt.include_time_gated and is_time_gated(recipe):
+    if recipe is None:
+        crafting_cost = None
+    elif not opt.include_time_gated and is_time_gated(recipe):
         crafting_cost = None
     else:
         cost = 0
@@ -272,6 +267,11 @@ def calculate_estimated_min_crafting_cost(
                 cost += ingredient_cost.cost * ingredient.count
             else:
                 return None
+
+        if recipe.output_item_count is None:
+            output_item_count = 1
+        else:
+            output_item_count = recipe.output_item_count
 
         crafting_cost = div_int_ceil(cost, output_item_count)
 
