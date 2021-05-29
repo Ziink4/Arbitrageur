@@ -45,7 +45,7 @@ async def request_page(url_path: str, page_no: int) -> Tuple[int, Any]:
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
-            assert "X-Page-Total" in response.headers
+            assert "X-Page-Total" in response.headers or page_no > 0
             page_total_str = response.headers.get("X-Page-Total")
             page_total = int(page_total_str)
             return page_total, await response.json()
