@@ -9,6 +9,8 @@ from arbitrageur.prices import Price, PriceInfo, effective_buy_price
 from arbitrageur.recipes import Recipe, RecipeIngredient
 from arbitrageur.request import request_cached_pages, request_all_pages, fetch_item_listings
 
+from logzero import logger
+
 FILTER_DISCIPLINES = [
     "Armorsmith",
     "Artificer",
@@ -25,10 +27,10 @@ ITEM_STACK_SIZE = 250  # GW2 uses a "stack size" of 250
 
 
 async def retrieve_recipes(recipes_path: Path) -> Dict[int, Recipe]:
-    print("Loading recipes")
+    logger.info("Loading recipes")
     recipes = await request_cached_pages(recipes_path, "recipes")
-    print(f"""Loaded {len(recipes)} recipes""")
-    print("Parsing recipes data")
+    logger.info(f"""Loaded {len(recipes)} recipes""")
+    logger.info("Parsing recipes data")
     recipes_map = {recipe["output_item_id"]: Recipe(id=recipe["id"],
                                                     type_name=recipe["type"],
                                                     output_item_id=recipe["output_item_id"],
@@ -45,10 +47,10 @@ async def retrieve_recipes(recipes_path: Path) -> Dict[int, Recipe]:
 
 
 async def retrieve_items(items_path: Path) -> Dict[int, Item]:
-    print("Loading items")
+    logger.info("Loading items")
     items = await request_cached_pages(items_path, "items")
-    print(f"""Loaded {len(items)} items""")
-    print("Parsing items data")
+    logger.info(f"""Loaded {len(items)} items""")
+    logger.info("Parsing items data")
     items_map = {item["id"]: Item(id=item["id"],
                                   chat_link=item["chat_link"],
                                   name=item["name"],
@@ -72,10 +74,10 @@ async def retrieve_items(items_path: Path) -> Dict[int, Item]:
 
 
 async def retrieve_tp_prices() -> Dict[int, Price]:
-    print("Loading trading post prices")
+    logger.info("Loading trading post prices")
     tp_prices = await request_all_pages("commerce/prices")
-    print(f"""Loaded {len(tp_prices)} trading post prices""")
-    print("Parsing trading post prices data")
+    logger.info(f"""Loaded {len(tp_prices)} trading post prices""")
+    logger.info("Parsing trading post prices data")
     tp_prices_map = {price["id"]: Price(id=price["id"],
                                         buys=PriceInfo(unit_price=price["buys"]["unit_price"],
                                                        quantity=price["buys"]["quantity"]),
@@ -99,7 +101,7 @@ def calculate_profitable_items(crafting_options: CraftingOptions,
                                items_map: Dict[int, Item],
                                recipes_map: Dict[int, Recipe],
                                tp_prices_map: Dict[int, Price]) -> Tuple[List[int], List[int]]:
-    print("Computing profitable item list")
+    logger.info("Computing profitable item list")
     profitable_item_ids = []
     ingredient_ids = []
     for item_id, recipe in recipes_map.items():
@@ -135,10 +137,10 @@ def calculate_profitable_items(crafting_options: CraftingOptions,
 
 
 async def retrieve_detailed_tp_listings(item_ids: List[int]) -> Dict[int, ItemListings]:
-    print("Loading detailed trading post listings")
+    logger.info("Loading detailed trading post listings")
     tp_listings = await fetch_item_listings(item_ids)
-    print(f"""Loaded {len(tp_listings)} detailed trading post listings""")
-    print("Parsing detailed trading post listings data")
+    logger.info(f"""Loaded {len(tp_listings)} detailed trading post listings""")
+    logger.info("Parsing detailed trading post listings data")
     tp_listings_map = {listings["id"]: ItemListings(id=listings["id"],
                                                     buys=[Listing(listings=listing["listings"],
                                                                   unit_price=listing["unit_price"],
@@ -174,7 +176,7 @@ async def main():
     request_listing_item_ids.update(ingredient_ids)
     tp_listings_map = await retrieve_detailed_tp_listings(list(request_listing_item_ids))
 
-    print("Computing precise crafting profits")
+    logger.info("Computing precise crafting profits")
     profitable_items = []
     for item_id in profitable_item_ids:
         assert item_id in tp_listings_map
@@ -187,12 +189,12 @@ async def main():
                                                        crafting_options)
         profitable_items.append(profitable_item)
 
+    logger.info("TODO : ??? PROFIT")
     profitable_items.sort(key=lambda pi: pi.profit)
-
-    print("TODO : ??? PROFIT")
+    return profitable_items
 
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    loop.run_until_complete(main())
+    profitable_items = loop.run_until_complete(main())
