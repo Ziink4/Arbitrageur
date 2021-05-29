@@ -18,11 +18,11 @@ class ItemListings:
     sells: List[Listing]
 
     def buy(self, count: int) -> Optional[int]:
-        if len(self.sells) == 0:
-            return None
-
         cost = 0
         while count > 0:
+            if len(self.sells) == 0:
+                return None
+
             # sells are sorted in descending price
             self.sells[-1].quantity -= 1
             count -= 1

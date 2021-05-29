@@ -222,8 +222,9 @@ def calculate_crafting_profit(
             break
 
         for (item_id, count) in tp_purchases:
-            assert item_id in tp_listings_map  # Missing detailed prices for item id
-            tp_listings_map.get(item_id).buy(ceil(count))
+            assert item_id in tp_listings_map, f"""Missing detailed prices for {item_id}"""
+            bought = tp_listings_map[item_id].buy(ceil(count))
+            assert bought is not None
 
         if purchased_ingredients is not None:
             for (item_id, count) in tp_purchases:
