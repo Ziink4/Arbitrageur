@@ -1,10 +1,12 @@
 import asyncio
 from pathlib import Path
+from typing import Dict, List
 
-from arbitrageur.crafting import CraftingOptions
-from arbitrageur.items import Item, ItemUpgrade
+from arbitrageur.crafting import CraftingOptions, calculate_estimated_min_crafting_cost
+from arbitrageur.items import Item, ItemUpgrade, is_restricted
+from arbitrageur.prices import Price, PriceInfo, effective_buy_price
 from arbitrageur.recipes import Recipe, RecipeIngredient
-from arbitrageur.request import request_cached_pages, request_all_pages
+from arbitrageur.request import request_cached_pages, request_all_pages, fetch_item_listings
 
 FILTER_DISCIPLINES = [
     "Armorsmith",
@@ -19,6 +21,17 @@ FILTER_DISCIPLINES = [
 ]  # only show items craftable by these disciplines
 
 ITEM_STACK_SIZE = 250  # GW2 uses a "stack size" of 250
+
+
+def collect_ingredient_ids(item_id: int, recipes_map: Dict[int, Recipe]):
+    ids = []
+    recipe = recipes_map.get(item_id)
+    if recipe:
+        for ingredient in recipe.ingredients:
+            ids.append(ingredient.item_id)
+            ids += collect_ingredient_ids(ingredient.item_id, recipes_map)
+
+    return ids
 
 
 async def main():
@@ -76,6 +89,49 @@ async def main():
     tp_prices = await request_all_pages("commerce/prices")
     print(f"""Loaded {len(tp_prices)} trading post prices""")
 
+    tp_prices_map = {price["id"]: Price(id=price["id"],
+                                        buys=PriceInfo(unit_price=price["buys"]["unit_price"],
+                                                       quantity=price["buys"]["quantity"]),
+                                        sells=PriceInfo(unit_price=price["sells"]["unit_price"],
+                                                        quantity=price["sells"]["quantity"])) for price in tp_prices}
+
+    profitable_item_ids = []
+    ingredient_ids = []
+
+    for item_id, recipe in recipes_map.items():
+        item = items_map.get(item_id)
+        if item is not None:
+            # We cannot sell restricted items
+            if is_restricted(item):
+                continue
+
+        has_discipline = any(discipline in recipe.disciplines for discipline in FILTER_DISCIPLINES)
+        if not has_discipline:
+            continue
+
+        # some items are craftable and have no listed restrictions but are still not listable on tp
+        # e.g. 39417, 79557
+        # conversely, some items have a NoSell flag but are listable on the trading post
+        # e.g. 66917
+        tp_prices = tp_prices_map.get(item_id)
+        if tp_prices is None:
+            continue
+
+        if tp_prices.sells.quantity == 0:
+            continue
+
+        crafting_cost = calculate_estimated_min_crafting_cost(item_id, recipes_map, items_map, tp_prices_map,
+                                                              crafting_options)
+        if crafting_cost is not None:
+            if effective_buy_price(tp_prices.buys.unit_price) > crafting_cost.cost:
+                profitable_item_ids.append(item_id)
+                ingredient_ids += collect_ingredient_ids(item_id, recipes_map)
+
+    print("Loading detailed trading post listings")
+    request_listing_item_ids = set(profitable_item_ids)
+    request_listing_item_ids.update(ingredient_ids)
+    tp_listings = await fetch_item_listings(list(request_listing_item_ids))
+    print(f"""Loaded {len(tp_listings)} detailed trading post listings""")
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
