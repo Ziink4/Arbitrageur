@@ -24,7 +24,7 @@ class Recipe(NamedTuple):
 # I've left Charged Quartz Crystals off the list, since they can
 # drop from containers.
 def is_time_gated(recipe: Recipe) -> bool:
-    return any(recipe.output_item_id == 46740,  # Spool of Silk Weaving Thread
+    return any([recipe.output_item_id == 46740,  # Spool of Silk Weaving Thread
                recipe.output_item_id == 46742,  # Lump of Mithrillium
                recipe.output_item_id == 46744,  # Glob of Elder Spirit Residue
                recipe.output_item_id == 46745,  # Spool of Thick Elonian Cord
@@ -38,4 +38,4 @@ def is_time_gated(recipe: Recipe) -> bool:
                recipe.output_item_id == 79763,  # Gossamer Stuffing
                recipe.output_item_id == 79790,  # Dragon Hatchling Doll Hide
                recipe.output_item_id == 79795,  # Dragon Hatchling Doll Adornments
-               recipe.output_item_id == 79817)  # Dragon Hatchling Doll Frame
+               recipe.output_item_id == 79817])  # Dragon Hatchling Doll Frame
