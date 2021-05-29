@@ -20,7 +20,9 @@ async def request_item_ids(url_path: str, item_ids: List[int]) -> List[Any]:
             print(f"""Fetching {url}""")
 
             async with session.get(url) as response:
-                result.append(await response.json())
+                response_json = await response.json()
+
+            result.extend(response_json)
 
     return result
 
@@ -29,16 +31,10 @@ async def fetch_item_listings(item_ids: List[int]) -> List[Any]:
     tp_listings = await request_item_ids("commerce/listings", item_ids)
 
     for listings in tp_listings:
-        assert len(listings) == 1
-        listings_dict = listings[0]
-
         # by default sells are listed in ascending and buys in descending price.
         # reverse lists to allow best offers to be popped instead of spliced from front.
-        assert "id" in listings_dict
-        assert "buys" in listings_dict
-        assert "sells" in listings_dict
-        listings_dict["buys"].reverse()
-        listings_dict["sells"].reverse()
+        listings["buys"].reverse()
+        listings["sells"].reverse()
 
     return tp_listings
 
