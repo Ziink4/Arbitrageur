@@ -42,11 +42,7 @@ async def main():
     recipes = await request_cached_pages(recipes_path, "recipes")
     print(f"""Loaded {len(recipes)} recipes""")
 
-    print("Loading items")
-    items = await request_cached_pages(items_path, "items")
-    print(f"""Loaded {len(items)} items""")
-
-    print("Parsing JSON data")
+    print("Parsing recipes data")
     recipes_map = {recipe["output_item_id"]: Recipe(id=recipe["id"],
                                                     type_name=recipe["type"],
                                                     output_item_id=recipe["output_item_id"],
@@ -60,6 +56,11 @@ async def main():
                                                                  recipe["ingredients"]],
                                                     chat_link=recipe["chat_link"]) for recipe in recipes}
 
+    print("Loading items")
+    items = await request_cached_pages(items_path, "items")
+    print(f"""Loaded {len(items)} items""")
+
+    print("Parsing items data")
     items_map = {item["id"]: Item(id=item["id"],
                                   chat_link=item["chat_link"],
                                   name=item["name"],
@@ -89,12 +90,14 @@ async def main():
     tp_prices = await request_all_pages("commerce/prices")
     print(f"""Loaded {len(tp_prices)} trading post prices""")
 
+    print("Parsing trading post prices data")
     tp_prices_map = {price["id"]: Price(id=price["id"],
                                         buys=PriceInfo(unit_price=price["buys"]["unit_price"],
                                                        quantity=price["buys"]["quantity"]),
                                         sells=PriceInfo(unit_price=price["sells"]["unit_price"],
                                                         quantity=price["sells"]["quantity"])) for price in tp_prices}
 
+    print("Computing profitable item list")
     profitable_item_ids = []
     ingredient_ids = []
 
@@ -132,6 +135,9 @@ async def main():
     request_listing_item_ids.update(ingredient_ids)
     tp_listings = await fetch_item_listings(list(request_listing_item_ids))
     print(f"""Loaded {len(tp_listings)} detailed trading post listings""")
+
+    print("TODO : Compute precise crafting profits")
+
 
 if __name__ == "__main__":
     loop = asyncio.new_event_loop()
