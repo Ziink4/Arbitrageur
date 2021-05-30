@@ -70,7 +70,7 @@ def calculate_precise_min_crafting_cost(
         items_map: Dict[int, Item],
         tp_listings_map: Dict[int, ItemListings],
         tp_purchases: List[Tuple[int, Fraction]],
-        crafting_steps: Fraction) -> Tuple[CraftingCost, List[Tuple[int, Fraction]], Fraction]:
+        crafting_steps: Fraction) -> Tuple[Optional[CraftingCost], List[Tuple[int, Fraction]], Fraction]:
     assert item_id in items_map
     item = items_map.get(item_id)
 
@@ -105,6 +105,10 @@ def calculate_precise_min_crafting_cost(
                 tp_purchases,
                 crafting_steps)
 
+            if ingredient_cost is None:
+                # Rollback crafting
+                return None, tp_purchases[:tp_purchases_ptr], crafting_steps_before
+
             if ingredient_cost.time_gated is not None:
                 time_gated |= ingredient_cost.time_gated
 
@@ -112,7 +116,8 @@ def calculate_precise_min_crafting_cost(
                 needs_ascended |= ingredient_cost.needs_ascended
 
             if ingredient_cost.cost is None:
-                continue
+                # Rollback crafting
+                return None, tp_purchases[:tp_purchases_ptr], crafting_steps_before
             else:
                 # NB: The trading post prices won't be completely accurate, because the reductions
                 # in liquidity for ingredients are deferred until the parent recipe is fully completed.
@@ -249,7 +254,7 @@ def calculate_estimated_min_crafting_cost(
         item_id: int,
         recipes_map: Dict[int, Recipe],
         items_map: Dict[int, Item],
-        tp_prices_map: Dict[int, Price]) -> CraftingCost:
+        tp_prices_map: Dict[int, Price]) -> Optional[CraftingCost]:
     assert item_id in items_map
     item = items_map.get(item_id)
 
@@ -269,6 +274,9 @@ def calculate_estimated_min_crafting_cost(
                 items_map,
                 tp_prices_map)
 
+            if ingredient_cost is None:
+                return None
+
             if ingredient_cost.time_gated is not None:
                 time_gated |= ingredient_cost.time_gated
 
@@ -276,7 +284,7 @@ def calculate_estimated_min_crafting_cost(
                 needs_ascended |= ingredient_cost.needs_ascended
 
             if ingredient_cost.cost is None:
-                continue
+                return None
             else:
                 cost += ingredient_cost.cost * ingredient.count
 
