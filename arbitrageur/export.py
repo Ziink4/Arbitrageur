@@ -14,7 +14,7 @@ def format_disciplines(disciplines: List[str]) -> str:
 
 
 def format_roi(item: ProfitableItem) -> str:
-    return f"""{profit_on_cost(item) * 100}%"""
+    return f"""{float(profit_on_cost(item)) * 100}%"""
 
 
 def export_csv(profitable_items: List[ProfitableItem],
@@ -28,7 +28,7 @@ def export_csv(profitable_items: List[ProfitableItem],
     data = []
 
     for profitable_item in profitable_items:
-        item_id = item.id
+        item_id = profitable_item.id
         item = items_map[item_id]
         recipe = recipes_map[item_id]
 
@@ -37,11 +37,12 @@ def export_csv(profitable_items: List[ProfitableItem],
             'disciplines': format_disciplines(recipe.disciplines),
             'profit': profitable_item.profit,
             'crafting_cost': profitable_item.crafting_cost,
-            'count': item.count,
+            'count': profitable_item.count,
             'avg_profit_per_item': profit_per_item(profitable_item),
             'roi': format_roi(profitable_item),
             'link': f"""https://www.gw2bltc.com/en/item/{item.id}""",
-            'id': item.id,
+            'id': item_id,
+            # TODO: This returns the "total" minimal sell price instead of the minimal sell price per item
             'profitability_threshold': effective_sell_price(profitable_item.crafting_cost),
             'time_gated': is_time_gated(recipe),
             'craft_level': recipe.min_rating,
