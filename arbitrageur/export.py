@@ -1,6 +1,6 @@
 from typing import Dict, List
 
-from arbitrageur.crafting import ProfitableItem
+from arbitrageur.crafting import ProfitableItem, profit_per_item, profit_on_cost
 from arbitrageur.items import Item
 from arbitrageur.prices import effective_sell_price
 from arbitrageur.recipes import is_time_gated, Recipe
@@ -9,25 +9,42 @@ import csv
 from logzero import logger
 
 
-def handle_disciplines(disciplines: List[str]):
+def format_disciplines(disciplines: List[str]) -> str:
     return str(disciplines)[2:-2].replace("', '", "/")
 
 
-def export_csv(profitable_items: List[ProfitableItem], item_map: Dict[int, Item], recipes_map: Dict[int, Recipe]):
-    data = []
-    profitable_items = [e for e in profitable_items if e.profit != 0]
+def format_roi(item: ProfitableItem) -> str:
+    return f"""{profit_on_cost(item) * 100}%"""
 
-    for item in profitable_items:
+
+def export_csv(profitable_items: List[ProfitableItem],
+               items_map: Dict[int, Item],
+               recipes_map: Dict[int, Recipe]) -> None:
+    profitable_items = [e for e in profitable_items if e.profit != 0]
+    if len(profitable_items) == 0:
+        logger.warning("Could not find any profitable item to export")
+        return
+
+    data = []
+
+    for profitable_item in profitable_items:
+        item_id = item.id
+        item = items_map[item_id]
+        recipe = recipes_map[item_id]
+
         item_data = {
-            'name':                    item_map[item.id].name,
-            'disciplines':             handle_disciplines(recipes_map[item.id].disciplines),
-            'profit':                  item.profit,
-            'count':                   item.count,
-            'link':                    f"""https://www.gw2bltc.com/en/item/{item.id}""",
-            'id':                      item.id,
-            'profitability_threshold': effective_sell_price(item.crafting_cost),
-            'time_gated':              is_time_gated(recipes_map[item.id]),
-            'craft_level':             recipes_map[item.id].min_rating,
+            'name': item.name,
+            'disciplines': format_disciplines(recipe.disciplines),
+            'profit': profitable_item.profit,
+            'crafting_cost': profitable_item.crafting_cost,
+            'count': item.count,
+            'avg_profit_per_item': profit_per_item(profitable_item),
+            'roi': format_roi(profitable_item),
+            'link': f"""https://www.gw2bltc.com/en/item/{item.id}""",
+            'id': item.id,
+            'profitability_threshold': effective_sell_price(profitable_item.crafting_cost),
+            'time_gated': is_time_gated(recipe),
+            'craft_level': recipe.min_rating,
         }
 
         data.append(item_data)
