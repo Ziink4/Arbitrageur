@@ -3,9 +3,11 @@ from fractions import Fraction
 from math import floor, ceil
 from typing import Optional, NamedTuple, Dict, Any, List, Tuple
 
+from logzero import logger
+
 from arbitrageur.items import Item, vendor_price
 from arbitrageur.listings import ItemListings
-from arbitrageur.prices import Price
+from arbitrageur.prices import Price, effective_buy_price
 from arbitrageur.recipes import Recipe
 
 
@@ -56,53 +58,6 @@ def inner_min(left: Optional[Any], right: Optional[Any]) -> Optional[Any]:
     return min(left, right)
 
 
-def calculate_precise_min_crafting_cost_internal(
-        recipe: Recipe,
-        output_item_count: int,
-        recipes_map: Dict[int, Recipe],
-        items_map: Dict[int, Item],
-        tp_listings_map: Dict[int, ItemListings],
-        tp_purchases: List[Tuple[int, Fraction]],
-        crafting_steps: Fraction) -> Tuple[Optional[int], List[Tuple[int, Fraction]], Fraction]:
-    cost = 0
-    for ingredient in recipe.ingredients:
-        tp_purchases_ingredient_ptr = len(tp_purchases)
-        crafting_steps_before_ingredient = crafting_steps
-
-        ingredient_cost, tp_purchases, crafting_steps = calculate_precise_min_crafting_cost(
-            ingredient.item_id,
-            recipes_map,
-            items_map,
-            tp_listings_map,
-            tp_purchases,
-            crafting_steps)
-
-        if ingredient_cost is None:
-            return None, tp_purchases, crafting_steps
-
-        if ingredient_cost.cost is None:
-            return None, tp_purchases, crafting_steps
-
-        # NB: The trading post prices won't be completely accurate, because the reductions
-        # in liquidity for ingredients are deferred until the parent recipe is fully completed.
-        # This is to allow trading post purchases to be 'rolled back' if crafting a parent
-        # item turns out to be less profitable than buying it.
-        if ingredient_cost.source == Source.TradingPost:
-            tp_purchases.append((ingredient.item_id, Fraction(ingredient.count, output_item_count)))
-        elif ingredient_cost.source == Source.Crafting:
-            # repeat purchases of the ingredient's children
-            new_purchases = [(item, cost * ingredient.count / output_item_count) for (item, cost) in
-                             tp_purchases[tp_purchases_ingredient_ptr:]]
-            tp_purchases = tp_purchases[:tp_purchases_ingredient_ptr] + new_purchases
-
-            crafting_steps = crafting_steps_before_ingredient + (
-                    crafting_steps - crafting_steps_before_ingredient) * ingredient.count / output_item_count
-
-        cost += ingredient_cost.cost * ingredient.count
-
-    return div_int_ceil(cost, output_item_count), tp_purchases, crafting_steps
-
-
 # Calculate the lowest cost method to obtain the given item, with simulated purchases from
 # the trading post.
 def calculate_precise_min_crafting_cost(
@@ -128,13 +83,49 @@ def calculate_precise_min_crafting_cost(
         else:
             output_item_count = recipe.output_item_count
 
-        crafting_cost, tp_purchases, crafting_steps = calculate_precise_min_crafting_cost_internal(recipe,
-                                                                                                   output_item_count,
-                                                                                                   recipes_map,
-                                                                                                   items_map,
-                                                                                                   tp_listings_map,
-                                                                                                   tp_purchases,
-                                                                                                   crafting_steps)
+        cost = None
+        logger.debug(f"""Calculating ingredients cost for {recipe.output_item_id}({items_map[recipe.output_item_id].name})""")
+        for ingredient in recipe.ingredients:
+            tp_purchases_ingredient_ptr = len(tp_purchases)
+            crafting_steps_before_ingredient = crafting_steps
+
+            ingredient_cost, tp_purchases, crafting_steps = calculate_precise_min_crafting_cost(
+                ingredient.item_id,
+                recipes_map,
+                items_map,
+                tp_listings_map,
+                tp_purchases,
+                crafting_steps)
+
+            if ingredient_cost is None:
+                continue
+            elif ingredient_cost.cost is None:
+                continue
+            else:
+                # NB: The trading post prices won't be completely accurate, because the reductions
+                # in liquidity for ingredients are deferred until the parent recipe is fully completed.
+                # This is to allow trading post purchases to be 'rolled back' if crafting a parent
+                # item turns out to be less profitable than buying it.
+                if ingredient_cost.source == Source.TradingPost:
+                    tp_purchases.append((ingredient.item_id, Fraction(ingredient.count, output_item_count)))
+                elif ingredient_cost.source == Source.Crafting:
+                    # repeat purchases of the ingredient's children
+                    new_purchases = [(item, cost * ingredient.count / output_item_count) for (item, cost) in
+                                     tp_purchases[tp_purchases_ingredient_ptr:]]
+                    tp_purchases = tp_purchases[:tp_purchases_ingredient_ptr] + new_purchases
+
+                    crafting_steps = crafting_steps_before_ingredient + (
+                            crafting_steps - crafting_steps_before_ingredient) * ingredient.count / output_item_count
+
+                if cost is None:
+                    cost = ingredient_cost.cost * ingredient.count
+                else:
+                    cost += ingredient_cost.cost * ingredient.count
+
+        if cost is None:
+            crafting_cost = None
+        else:
+            crafting_cost = div_int_ceil(cost, output_item_count)
 
     if item_id in tp_listings_map:
         tp_cost = tp_listings_map.get(item_id).lowest_sell_offer(1)
@@ -143,6 +134,7 @@ def calculate_precise_min_crafting_cost(
 
     vendor_cost = vendor_price(item)
 
+    logger.debug(f"""Crafting/TP/Vendor costs for {item_id}({items_map[item_id].name}) are {crafting_cost}/{tp_cost}/{vendor_cost}""")
     lowest_cost = select_lowest_cost(crafting_cost, tp_cost, vendor_cost)
     if lowest_cost.source != Source.Crafting:
         # Rollback crafting
@@ -168,9 +160,10 @@ def calculate_crafting_profit(
     total_crafting_steps = Fraction(0)
 
     while True:
-        tp_purchases = []
+        logger.debug(f"""Calculating profits for {listings.id}({items_map[listings.id].name}) #{crafting_count}""")
         crafting_steps = Fraction(0)
 
+        tp_purchases = []
         crafting_cost, tp_purchases, crafting_steps = calculate_precise_min_crafting_cost(listings.id,
                                                                                           recipes_map,
                                                                                           items_map,
@@ -186,7 +179,11 @@ def calculate_crafting_profit(
         if buy_price is None:
             break
 
-        profit = buy_price - crafting_cost.cost
+        profit = effective_buy_price(buy_price) - crafting_cost.cost
+
+        logger.debug(f"""Buy price {listings.id}({items_map[listings.id].name}) #{crafting_count} is {buy_price} before tax, {effective_buy_price(buy_price)} after tax""")
+        logger.debug(f"""Profit {listings.id}({items_map[listings.id].name}) #{crafting_count} is {buy_price} - {crafting_cost.cost} = {profit}""")
+
         if profit > 0:
             listing_profit += profit
             total_crafting_cost += crafting_cost.cost

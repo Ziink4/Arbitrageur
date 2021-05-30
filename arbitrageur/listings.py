@@ -40,10 +40,9 @@ class ItemListings:
         if len(self.buys) == 0:
             return None
 
-        revenue = 0
         # buys are sorted in ascending price
         self.buys[-1].quantity -= 1
-        revenue += effective_buy_price(self.buys[-1].unit_price)
+        revenue = self.buys[-1].unit_price
 
         if self.buys[-1].quantity == 0:
             self.buys.pop()
