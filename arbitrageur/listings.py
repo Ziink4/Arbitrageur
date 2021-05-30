@@ -1,7 +1,10 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Dict
+
+from logzero import logger
 
 from arbitrageur.prices import effective_buy_price
+from arbitrageur.request import fetch_item_listings
 
 
 @dataclass
@@ -65,3 +68,20 @@ class ItemListings:
             return None
 
         return cost
+
+
+async def retrieve_detailed_tp_listings(item_ids: List[int]) -> Dict[int, ItemListings]:
+    logger.info("Loading detailed trading post listings")
+    tp_listings = await fetch_item_listings(item_ids)
+    logger.info(f"""Loaded {len(tp_listings)} detailed trading post listings""")
+    logger.info("Parsing detailed trading post listings data")
+    tp_listings_map = {listings["id"]: ItemListings(id=listings["id"],
+                                                    buys=[Listing(listings=listing["listings"],
+                                                                  unit_price=listing["unit_price"],
+                                                                  quantity=listing["quantity"]) for listing in
+                                                          listings["buys"]],
+                                                    sells=[Listing(listings=listing["listings"],
+                                                                   unit_price=listing["unit_price"],
+                                                                   quantity=listing["quantity"]) for listing in
+                                                           listings["sells"]]) for listings in tp_listings}
+    return tp_listings_map

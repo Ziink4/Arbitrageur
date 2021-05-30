@@ -1,4 +1,9 @@
-from typing import List, NamedTuple
+from pathlib import Path
+from typing import List, NamedTuple, Dict
+
+from logzero import logger
+
+from arbitrageur.request import request_cached_pages
 
 
 class RecipeIngredient(NamedTuple):
@@ -39,3 +44,34 @@ def is_time_gated(recipe: Recipe) -> bool:
                recipe.output_item_id == 79790,  # Dragon Hatchling Doll Hide
                recipe.output_item_id == 79795,  # Dragon Hatchling Doll Adornments
                recipe.output_item_id == 79817])  # Dragon Hatchling Doll Frame
+
+
+async def retrieve_recipes(recipes_path: Path) -> Dict[int, Recipe]:
+    logger.info("Loading recipes")
+    recipes = await request_cached_pages(recipes_path, "recipes")
+    logger.info(f"""Loaded {len(recipes)} recipes""")
+    logger.info("Parsing recipes data")
+    recipes_map = {recipe["output_item_id"]: Recipe(id=recipe["id"],
+                                                    type_name=recipe["type"],
+                                                    output_item_id=recipe["output_item_id"],
+                                                    output_item_count=recipe["output_item_count"],
+                                                    time_to_craft_ms=recipe["time_to_craft_ms"],
+                                                    disciplines=recipe["disciplines"],
+                                                    min_rating=recipe["min_rating"],
+                                                    flags=recipe["flags"],
+                                                    ingredients=[RecipeIngredient(item_id=i["item_id"],
+                                                                                  count=i["count"]) for i in
+                                                                 recipe["ingredients"]],
+                                                    chat_link=recipe["chat_link"]) for recipe in recipes}
+    return recipes_map
+
+
+def collect_ingredient_ids(item_id: int, recipes_map: Dict[int, Recipe]) -> List[int]:
+    ids = []
+    recipe = recipes_map.get(item_id)
+    if recipe:
+        for ingredient in recipe.ingredients:
+            ids.append(ingredient.item_id)
+            ids += collect_ingredient_ids(ingredient.item_id, recipes_map)
+
+    return ids
