@@ -30,7 +30,9 @@ def generate_export_rows(items_map, profitable_items, recipes_map):
         recipe = recipes_map[item_id]
 
         item_data = {
+            'id': item_id,
             'name': item.name,
+            'rarity': item.rarity,
             'disciplines': format_disciplines(recipe.disciplines),
             'profit': profitable_item.profit,
             'crafting_cost': profitable_item.crafting_cost,
@@ -38,10 +40,10 @@ def generate_export_rows(items_map, profitable_items, recipes_map):
             'avg_profit_per_item': profit_per_item(profitable_item),
             'roi': format_roi(profitable_item),
             'link': f"""https://www.gw2bltc.com/en/item/{item.id}""",
-            'id': item_id,
             # TODO: This returns the "total" minimal sell price instead of the minimal sell price per item
             'profitability_threshold': effective_sell_price(profitable_item.crafting_cost),
-            'time_gated': is_time_gated(recipe),
+            'time_gated': profitable_item.time_gated,
+            'needs_ascended': profitable_item.needs_ascended,
             'craft_level': recipe.min_rating,
         }
 
@@ -90,9 +92,5 @@ def export_excel(profitable_items: List[ProfitableItem],
                            showLastColumn=False, showRowStripes=True, showColumnStripes=True)
     tab.tableStyleInfo = style
 
-    '''
-    Table must be added using ws.add_table() method to avoid duplicate names.
-    Using this method ensures table name is unque through out defined names and all other table name. 
-    '''
     ws.add_table(tab)
     wb.save("export.xlsx")

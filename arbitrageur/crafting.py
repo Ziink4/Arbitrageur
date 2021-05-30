@@ -5,10 +5,10 @@ from typing import Optional, NamedTuple, Dict, Any, List, Tuple
 
 from logzero import logger
 
-from arbitrageur.items import Item, vendor_price
+from arbitrageur.items import Item, vendor_price, is_common_ascended_material
 from arbitrageur.listings import ItemListings
 from arbitrageur.prices import Price, effective_buy_price
-from arbitrageur.recipes import Recipe
+from arbitrageur.recipes import Recipe, is_time_gated
 
 
 class Source(Enum):
@@ -20,6 +20,8 @@ class Source(Enum):
 class CraftingCost(NamedTuple):
     cost: int
     source: Source
+    time_gated: Optional[bool]
+    needs_ascended: Optional[bool]
 
 
 class ProfitableItem(NamedTuple):
@@ -28,6 +30,8 @@ class ProfitableItem(NamedTuple):
     crafting_steps: Fraction
     count: int
     profit: int
+    time_gated: bool
+    needs_ascended: bool
 
 
 def profit_per_item(item: ProfitableItem) -> int:
@@ -73,10 +77,14 @@ def calculate_precise_min_crafting_cost(
     tp_purchases_ptr = len(tp_purchases)
     crafting_steps_before = crafting_steps
 
-    if item_id not in recipes_map:
-        crafting_cost = None
-    else:
+    crafting_cost = None
+    time_gated = False
+    needs_ascended = is_common_ascended_material(item)
+
+    if item_id in recipes_map:
         recipe = recipes_map[item_id]
+
+        time_gated = is_time_gated(recipe)
 
         if recipe.output_item_count is None:
             output_item_count = 1
@@ -97,9 +105,13 @@ def calculate_precise_min_crafting_cost(
                 tp_purchases,
                 crafting_steps)
 
-            if ingredient_cost is None:
-                continue
-            elif ingredient_cost.cost is None:
+            if ingredient_cost.time_gated is not None:
+                time_gated |= ingredient_cost.time_gated
+
+            if ingredient_cost.needs_ascended is not None:
+                needs_ascended |= ingredient_cost.needs_ascended
+
+            if ingredient_cost.cost is None:
                 continue
             else:
                 # NB: The trading post prices won't be completely accurate, because the reductions
@@ -135,7 +147,7 @@ def calculate_precise_min_crafting_cost(
     vendor_cost = vendor_price(item)
 
     logger.debug(f"""Crafting/TP/Vendor costs for {item_id}({items_map[item_id].name}) are {crafting_cost}/{tp_cost}/{vendor_cost}""")
-    lowest_cost = select_lowest_cost(crafting_cost, tp_cost, vendor_cost)
+    lowest_cost = select_lowest_cost(crafting_cost, tp_cost, vendor_cost, time_gated, needs_ascended)
     if lowest_cost.source != Source.Crafting:
         # Rollback crafting
         tp_purchases = tp_purchases[:tp_purchases_ptr]
@@ -210,12 +222,16 @@ def calculate_crafting_profit(
         crafting_cost=total_crafting_cost,
         crafting_steps=total_crafting_steps,
         profit=listing_profit,
-        count=crafting_count), purchased_ingredients
+        count=crafting_count,
+        time_gated=crafting_cost.time_gated,
+        needs_ascended=crafting_cost.needs_ascended), purchased_ingredients
 
 
 def select_lowest_cost(crafting_cost: Optional[int],
                        tp_cost: Optional[int],
-                       vendor_cost: Optional[int]) -> CraftingCost:
+                       vendor_cost: Optional[int],
+                       time_gated: Optional[bool],
+                       needs_ascended: Optional[bool]) -> CraftingCost:
     cost = inner_min(inner_min(tp_cost, crafting_cost), vendor_cost)
     # give trading post precedence over crafting if costs are equal
     if tp_cost is not None:
@@ -224,7 +240,7 @@ def select_lowest_cost(crafting_cost: Optional[int],
         source = Source.Crafting
     else:
         source = Source.Vendor
-    return CraftingCost(cost, source)
+    return CraftingCost(cost, source, time_gated, needs_ascended)
 
 
 # Calculate the lowest cost method to obtain the given item, using only the current high/low tp prices.
@@ -233,14 +249,18 @@ def calculate_estimated_min_crafting_cost(
         item_id: int,
         recipes_map: Dict[int, Recipe],
         items_map: Dict[int, Item],
-        tp_prices_map: Dict[int, Price]) -> Optional[CraftingCost]:
+        tp_prices_map: Dict[int, Price]) -> CraftingCost:
     assert item_id in items_map
     item = items_map.get(item_id)
 
+    crafting_cost = None
+    time_gated = False
+    needs_ascended = is_common_ascended_material(item)
+
     recipe = recipes_map.get(item_id)
-    if recipe is None:
-        crafting_cost = None
-    else:
+    if recipe is not None:
+        time_gated = is_time_gated(recipe)
+
         cost = 0
         for ingredient in recipe.ingredients:
             ingredient_cost = calculate_estimated_min_crafting_cost(
@@ -249,10 +269,14 @@ def calculate_estimated_min_crafting_cost(
                 items_map,
                 tp_prices_map)
 
-            if ingredient_cost is None:
-                return None
-            elif ingredient_cost.cost is None:
-                return None
+            if ingredient_cost.time_gated is not None:
+                time_gated |= ingredient_cost.time_gated
+
+            if ingredient_cost.needs_ascended is not None:
+                needs_ascended |= ingredient_cost.needs_ascended
+
+            if ingredient_cost.cost is None:
+                continue
             else:
                 cost += ingredient_cost.cost * ingredient.count
 
@@ -273,4 +297,4 @@ def calculate_estimated_min_crafting_cost(
 
     vendor_cost = vendor_price(item)
 
-    return select_lowest_cost(crafting_cost, tp_cost, vendor_cost)
+    return select_lowest_cost(crafting_cost, tp_cost, vendor_cost, time_gated, needs_ascended)
