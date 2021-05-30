@@ -119,3 +119,4 @@ dmypy.json
 # Ignore arbitrageur cache files
 items.json
 recipes.json
+output.csv
