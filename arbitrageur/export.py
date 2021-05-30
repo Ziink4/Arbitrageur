@@ -14,11 +14,8 @@ from logzero import logger
 
 
 def format_disciplines(disciplines: List[str]) -> str:
+    disciplines = [e[0] if e[0] != 'A' else e[:2] for e in disciplines]
     return str(disciplines)[2:-2].replace("', '", "/")
-
-
-def format_roi(item: ProfitableItem) -> str:
-    return f"""{float(profit_on_cost(item)) * 100}%"""
 
 
 def generate_export_rows(items_map, profitable_items, recipes_map):
@@ -30,21 +27,21 @@ def generate_export_rows(items_map, profitable_items, recipes_map):
         recipe = recipes_map[item_id]
 
         item_data = {
-            'id': item_id,
-            'name': item.name,
-            'rarity': item.rarity,
-            'disciplines': format_disciplines(recipe.disciplines),
-            'profit': profitable_item.profit,
-            'crafting_cost': profitable_item.crafting_cost,
-            'count': profitable_item.count,
-            'avg_profit_per_item': profit_per_item(profitable_item),
-            'roi': format_roi(profitable_item),
-            'link': f"""https://www.gw2bltc.com/en/item/{item.id}""",
+            'id':                      item_id,
+            'name':                    item.name,
+            'rarity':                  item.rarity,
+            'disciplines':             format_disciplines(recipe.disciplines),
+            'profit':                  profitable_item.profit,
+            'crafting_cost':           profitable_item.crafting_cost,
+            'count':                   profitable_item.count,
+            'avg_profit_per_item':     profit_per_item(profitable_item),
+            'roi':                     float(profit_on_cost(profitable_item)),
+            'link':                    f"""=HYPERLINK("https://www.gw2bltc.com/en/item/{item.id}")""",
             # TODO: This returns the "total" minimal sell price instead of the minimal sell price per item
             'profitability_threshold': effective_sell_price(profitable_item.crafting_cost),
-            'time_gated': profitable_item.time_gated,
-            'needs_ascended': profitable_item.needs_ascended,
-            'craft_level': recipe.min_rating,
+            'time_gated':              profitable_item.time_gated,
+            'needs_ascended':          profitable_item.needs_ascended,
+            'craft_level':             recipe.min_rating,
         }
 
         data.append(item_data)
@@ -66,6 +63,16 @@ def export_csv(profitable_items: List[ProfitableItem],
 
         for item_data in data:
             datawriter.writerow(item_data.values())
+
+
+def get_series_letter(name: str, data: List[dict]) -> str:
+    return get_column_letter(list(data[0].keys()).index(name) + 1)
+
+
+def as_text(value):
+    if value is None:
+        return ""
+    return str(value)
 
 
 def export_excel(profitable_items: List[ProfitableItem],
@@ -93,4 +100,21 @@ def export_excel(profitable_items: List[ProfitableItem],
     tab.tableStyleInfo = style
 
     ws.add_table(tab)
+
+    # Applies formatting (format can only be applied to single cells)
+    for col_name, number_format in {'profit':                  r"#\,##\,##",
+                                    'crafting_cost':           r"#\,##\,##",
+                                    'avg_profit_per_item':     r"#\,##\,##",
+                                    'roi':                     '0.00%',
+                                    'profitability_threshold': r"#\,##\,##"}.items():
+        col_letter = get_series_letter(col_name, data)
+
+        for i in range(1, ws.max_row + 1):
+            ws[f"{col_letter}{i}"].number_format = number_format
+
+    # Adjusts column width
+    for column_cells in ws.columns:
+        length = max(len(as_text(cell.value)) for cell in column_cells)
+        ws.column_dimensions[column_cells[0].column_letter].width = length * 0.8 + 5
+
     wb.save("export.xlsx")
