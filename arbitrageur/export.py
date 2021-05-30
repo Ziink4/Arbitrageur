@@ -1,5 +1,9 @@
 from typing import Dict, List
 
+from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
+from openpyxl.worksheet.table import Table, TableStyleInfo
+
 from arbitrageur.crafting import ProfitableItem, profit_per_item, profit_on_cost
 from arbitrageur.items import Item
 from arbitrageur.prices import effective_sell_price
@@ -17,16 +21,9 @@ def format_roi(item: ProfitableItem) -> str:
     return f"""{float(profit_on_cost(item)) * 100}%"""
 
 
-def export_csv(profitable_items: List[ProfitableItem],
-               items_map: Dict[int, Item],
-               recipes_map: Dict[int, Recipe]) -> None:
+def generate_export_rows(items_map, profitable_items, recipes_map):
     profitable_items = [e for e in profitable_items if e.profit != 0]
-    if len(profitable_items) == 0:
-        logger.warning("Could not find any profitable item to export")
-        return
-
     data = []
-
     for profitable_item in profitable_items:
         item_id = profitable_item.id
         item = items_map[item_id]
@@ -49,10 +46,53 @@ def export_csv(profitable_items: List[ProfitableItem],
         }
 
         data.append(item_data)
+    return data
 
-    with open('output.csv', 'w', newline='') as csvfile:
+
+def export_csv(profitable_items: List[ProfitableItem],
+               items_map: Dict[int, Item],
+               recipes_map: Dict[int, Recipe]) -> None:
+    logger.info("Exporting profitable items as CSV")
+    data = generate_export_rows(items_map, profitable_items, recipes_map)
+    if len(data) == 0:
+        logger.warning("Could not find any profitable item to export")
+        return
+
+    with open('export.csv', 'w', newline='') as csvfile:
         datawriter = csv.writer(csvfile, delimiter=',', quotechar='"')
         datawriter.writerow(data[0].keys())
 
         for item_data in data:
             datawriter.writerow(item_data.values())
+
+
+def export_excel(profitable_items: List[ProfitableItem],
+                 items_map: Dict[int, Item],
+                 recipes_map: Dict[int, Recipe]) -> None:
+    logger.info("Exporting profitable items as Excel spreadsheet")
+    data = generate_export_rows(items_map, profitable_items, recipes_map)
+    if len(data) == 0:
+        logger.warning("Could not find any profitable item to export")
+        return
+
+    wb = Workbook()
+    ws = wb.active
+
+    # add column headings. NB. these must be strings
+    ws.append(list(data[0].keys()))
+    for row in data:
+        ws.append(list(row.values()))
+
+    tab = Table(displayName="Data", ref="A1:" + get_column_letter(ws.max_column) + str(ws.max_row))
+
+    # Add a default style with striped rows and banded columns
+    style = TableStyleInfo(name="TableStyleMedium9", showFirstColumn=False,
+                           showLastColumn=False, showRowStripes=True, showColumnStripes=True)
+    tab.tableStyleInfo = style
+
+    '''
+    Table must be added using ws.add_table() method to avoid duplicate names.
+    Using this method ensures table name is unque through out defined names and all other table name. 
+    '''
+    ws.add_table(tab)
+    wb.save("export.xlsx")

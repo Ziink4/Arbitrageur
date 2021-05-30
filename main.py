@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Dict, List, Tuple
 
 from arbitrageur.crafting import calculate_estimated_min_crafting_cost, calculate_crafting_profit
-from arbitrageur.export import export_csv
+from arbitrageur.export import export_csv, export_excel
 from arbitrageur.items import Item, is_restricted, retrieve_items
 from arbitrageur.listings import retrieve_detailed_tp_listings
 from arbitrageur.prices import Price, effective_buy_price, retrieve_tp_prices
@@ -95,6 +95,7 @@ async def main():
 
     profitable_items.sort(key=lambda pi: pi.profit)
     export_csv(profitable_items, items_map, recipes_map)
+    export_excel(profitable_items, items_map, recipes_map)
 
 
 if __name__ == "__main__":
