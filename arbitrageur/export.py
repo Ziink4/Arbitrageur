@@ -23,10 +23,10 @@ def export_csv(profitable_items: List[ProfitableItem], item_map: Dict[int, Item]
             'disciplines':             handle_disciplines(recipes_map[item.id].disciplines),
             'profit':                  item.profit,
             'count':                   item.count,
-            'link':                    f'https://www.gw2bltc.com/en/item/{item.id}',
+            'link':                    f"""https://www.gw2bltc.com/en/item/{item.id}""",
             'id':                      item.id,
             'profitability_threshold': effective_sell_price(item.crafting_cost),
-            'timegated':               is_time_gated(recipes_map[item.id]),
+            'time_gated':              is_time_gated(recipes_map[item.id]),
             'craft_level':             recipes_map[item.id].min_rating,
         }
 
