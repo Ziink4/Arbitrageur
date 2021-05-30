@@ -1,4 +1,5 @@
 import asyncio
+import logzero
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -94,10 +95,10 @@ async def main():
 
     profitable_items.sort(key=lambda pi: pi.profit)
     export_csv(profitable_items, items_map, recipes_map)
-    return profitable_items
 
 
 if __name__ == "__main__":
+    logzero.loglevel(logzero.INFO)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    profitable_items = loop.run_until_complete(main())
+    loop.run_until_complete(main())
