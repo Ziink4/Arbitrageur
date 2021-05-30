@@ -3,22 +3,16 @@ from fractions import Fraction
 from math import floor, ceil
 from typing import Optional, NamedTuple, Dict, Any, List, Tuple
 
-from arbitrageur.items import Item, vendor_price, is_common_ascended_material
+from arbitrageur.items import Item, vendor_price
 from arbitrageur.listings import ItemListings
 from arbitrageur.prices import Price
-from arbitrageur.recipes import Recipe, is_time_gated
+from arbitrageur.recipes import Recipe
 
 
 class Source(Enum):
     Crafting = 0
     TradingPost = 1
     Vendor = 2
-
-
-class CraftingOptions(NamedTuple):
-    include_time_gated: bool
-    include_ascended: bool
-    count: Optional[int]
 
 
 class CraftingCost(NamedTuple):
@@ -69,11 +63,7 @@ def calculate_precise_min_crafting_cost_internal(
         items_map: Dict[int, Item],
         tp_listings_map: Dict[int, ItemListings],
         tp_purchases: List[Tuple[int, Fraction]],
-        crafting_steps: Fraction,
-        opt: CraftingOptions) -> Tuple[Optional[int], List[Tuple[int, Fraction]], Fraction]:
-    if not opt.include_time_gated and is_time_gated(recipe):
-        return None, tp_purchases, crafting_steps
-
+        crafting_steps: Fraction) -> Tuple[Optional[int], List[Tuple[int, Fraction]], Fraction]:
     cost = 0
     for ingredient in recipe.ingredients:
         tp_purchases_ingredient_ptr = len(tp_purchases)
@@ -85,8 +75,7 @@ def calculate_precise_min_crafting_cost_internal(
             items_map,
             tp_listings_map,
             tp_purchases,
-            crafting_steps,
-            opt)
+            crafting_steps)
 
         if ingredient_cost is None:
             return None, tp_purchases, crafting_steps
@@ -114,14 +103,6 @@ def calculate_precise_min_crafting_cost_internal(
     return div_int_ceil(cost, output_item_count), tp_purchases, crafting_steps
 
 
-def calculate_vendor_cost(item, opt):
-    if opt.include_ascended and is_common_ascended_material(item):
-        vendor_cost = 0
-    else:
-        vendor_cost = vendor_price(item)
-    return vendor_cost
-
-
 # Calculate the lowest cost method to obtain the given item, with simulated purchases from
 # the trading post.
 def calculate_precise_min_crafting_cost(
@@ -130,8 +111,7 @@ def calculate_precise_min_crafting_cost(
         items_map: Dict[int, Item],
         tp_listings_map: Dict[int, ItemListings],
         tp_purchases: List[Tuple[int, Fraction]],
-        crafting_steps: Fraction,
-        opt: CraftingOptions) -> Tuple[CraftingCost, List[Tuple[int, Fraction]], Fraction]:
+        crafting_steps: Fraction) -> Tuple[CraftingCost, List[Tuple[int, Fraction]], Fraction]:
     assert item_id in items_map
     item = items_map.get(item_id)
 
@@ -154,15 +134,14 @@ def calculate_precise_min_crafting_cost(
                                                                                                    items_map,
                                                                                                    tp_listings_map,
                                                                                                    tp_purchases,
-                                                                                                   crafting_steps,
-                                                                                                   opt)
+                                                                                                   crafting_steps)
 
     if item_id in tp_listings_map:
         tp_cost = tp_listings_map.get(item_id).lowest_sell_offer(1)
     else:
         tp_cost = None
 
-    vendor_cost = calculate_vendor_cost(item, opt)
+    vendor_cost = vendor_price(item)
 
     lowest_cost = select_lowest_cost(crafting_cost, tp_cost, vendor_cost)
     if lowest_cost.source != Source.Crafting:
@@ -182,18 +161,13 @@ def calculate_crafting_profit(
         recipes_map: Dict[int, Recipe],
         items_map: Dict[int, Item],
         tp_listings_map: Dict[int, ItemListings],
-        purchased_ingredients: Optional[Dict[int, Fraction]],
-        opt: CraftingOptions) -> Tuple[ProfitableItem, Optional[Dict[int, Fraction]]]:
+        purchased_ingredients: Optional[Dict[int, Fraction]]) -> Tuple[ProfitableItem, Optional[Dict[int, Fraction]]]:
     listing_profit = 0
     total_crafting_cost = 0
     crafting_count = 0
     total_crafting_steps = Fraction(0)
 
     while True:
-        if opt.count is not None:
-            if crafting_count >= opt.count:
-                break
-
         tp_purchases = []
         crafting_steps = Fraction(0)
 
@@ -202,8 +176,7 @@ def calculate_crafting_profit(
                                                                                           items_map,
                                                                                           tp_listings_map,
                                                                                           tp_purchases,
-                                                                                          crafting_steps,
-                                                                                          opt)
+                                                                                          crafting_steps)
 
         if crafting_cost is None:
             break
@@ -263,15 +236,12 @@ def calculate_estimated_min_crafting_cost(
         item_id: int,
         recipes_map: Dict[int, Recipe],
         items_map: Dict[int, Item],
-        tp_prices_map: Dict[int, Price],
-        opt: CraftingOptions) -> Optional[CraftingCost]:
+        tp_prices_map: Dict[int, Price]) -> Optional[CraftingCost]:
     assert item_id in items_map
     item = items_map.get(item_id)
 
     recipe = recipes_map.get(item_id)
     if recipe is None:
-        crafting_cost = None
-    elif not opt.include_time_gated and is_time_gated(recipe):
         crafting_cost = None
     else:
         cost = 0
@@ -280,8 +250,7 @@ def calculate_estimated_min_crafting_cost(
                 ingredient.item_id,
                 recipes_map,
                 items_map,
-                tp_prices_map,
-                opt)
+                tp_prices_map)
 
             if ingredient_cost is None:
                 return None
@@ -305,6 +274,6 @@ def calculate_estimated_min_crafting_cost(
     else:
         tp_cost = price.sells.unit_price
 
-    vendor_cost = calculate_vendor_cost(item, opt)
+    vendor_cost = vendor_price(item)
 
     return select_lowest_cost(crafting_cost, tp_cost, vendor_cost)

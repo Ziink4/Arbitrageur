@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from arbitrageur.crafting import CraftingOptions, calculate_estimated_min_crafting_cost, calculate_crafting_profit
+from arbitrageur.crafting import calculate_estimated_min_crafting_cost, calculate_crafting_profit
 from arbitrageur.items import Item, is_restricted, retrieve_items
 from arbitrageur.listings import retrieve_detailed_tp_listings
 from arbitrageur.prices import Price, effective_buy_price, retrieve_tp_prices
@@ -25,8 +25,7 @@ FILTER_DISCIPLINES = [
 ITEM_STACK_SIZE = 250  # GW2 uses a "stack size" of 250
 
 
-def calculate_profitable_items(crafting_options: CraftingOptions,
-                               items_map: Dict[int, Item],
+def calculate_profitable_items(items_map: Dict[int, Item],
                                recipes_map: Dict[int, Recipe],
                                tp_prices_map: Dict[int, Price]) -> Tuple[List[int], List[int]]:
     logger.info("Computing profitable item list")
@@ -55,8 +54,7 @@ def calculate_profitable_items(crafting_options: CraftingOptions,
         if tp_prices.sells.quantity == 0:
             continue
 
-        crafting_cost = calculate_estimated_min_crafting_cost(item_id, recipes_map, items_map, tp_prices_map,
-                                                              crafting_options)
+        crafting_cost = calculate_estimated_min_crafting_cost(item_id, recipes_map, items_map, tp_prices_map)
         if crafting_cost is not None:
             if effective_buy_price(tp_prices.buys.unit_price) > crafting_cost.cost:
                 profitable_item_ids.append(item_id)
@@ -71,15 +69,9 @@ async def main():
     recipes_map = await retrieve_recipes(recipes_path)
     items_map = await retrieve_items(items_path)
 
-    crafting_options = CraftingOptions(
-        include_time_gated=True,
-        include_ascended=True,
-        count=None)
-
     tp_prices_map = await retrieve_tp_prices()
 
-    ingredient_ids, profitable_item_ids = calculate_profitable_items(crafting_options,
-                                                                     items_map,
+    ingredient_ids, profitable_item_ids = calculate_profitable_items(items_map,
                                                                      recipes_map,
                                                                      tp_prices_map)
 
@@ -96,8 +88,7 @@ async def main():
                                                        recipes_map,
                                                        items_map,
                                                        tp_listings_map,
-                                                       None,
-                                                       crafting_options)
+                                                       None)
         profitable_items.append(profitable_item)
 
     logger.info("TODO : ??? PROFIT")

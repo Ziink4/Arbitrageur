@@ -68,6 +68,8 @@ def vendor_price(item: Item) -> Optional[int]:
         return 200
     elif name == "Smell-Enhancing Culture":
         return 40000
+    elif is_common_ascended_material(item):
+        return 0
     else:
         return None
 
