@@ -42,8 +42,7 @@ def format_json_recipe(profitable_item, items_map):
         logger.debug(
             f"""{ingredient_count_msg} {ingredient_name} ({ingredient_id}) for {purchased_ingredient.cost}""")
 
-        recipe[ingredient_name] = {"count": ingredient_count_msg,
-                                   "listings": purchased_ingredient.listings}
+        recipe[f"""{ingredient_count_msg} {ingredient_name}"""] = purchased_ingredient.listings
     return recipe
 
 
