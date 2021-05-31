@@ -1,14 +1,14 @@
 import json
+from math import ceil
 from typing import Dict, List
 
 from openpyxl import Workbook
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
-from arbitrageur.crafting import ProfitableItem, profit_per_item, profit_on_cost
+from arbitrageur.crafting import ProfitableItem, profit_per_item, profit_on_cost, profit_per_crafting_step
 from arbitrageur.items import Item
-from arbitrageur.prices import effective_sell_price
-from arbitrageur.recipes import is_time_gated, Recipe, format_json_recipe
+from arbitrageur.recipes import Recipe, ITEM_STACK_SIZE
 
 import csv
 from logzero import logger
@@ -17,6 +17,34 @@ from logzero import logger
 def format_disciplines(disciplines: List[str]) -> str:
     # Returns the first letter of each discipline, except for Armorsmith (Am) & Artificer (At)
     return "/".join([e[0] if e[0] != 'A' else e[:3:2] for e in disciplines])
+
+
+def format_json_recipe(profitable_item, items_map):
+    logger.debug(
+        f"""Shopping list for {profitable_item.count} x {items_map[profitable_item.id].name} = {profitable_item.profit} profit ({profit_per_crafting_step(profitable_item)} / step) :""")
+
+    recipe = {}
+    for ingredient_id, purchased_ingredient in profitable_item.purchased_ingredients.items():
+        ingredient_count = ceil(purchased_ingredient.count)
+        if ingredient_count < ITEM_STACK_SIZE:
+            ingredient_count_msg = str(ingredient_count)
+        else:
+            stack_count = ingredient_count // ITEM_STACK_SIZE
+            remainder = ingredient_count % ITEM_STACK_SIZE
+            if remainder != 0:
+                remainder_msg = f""" + {remainder}"""
+            else:
+                remainder_msg = ""
+
+            ingredient_count_msg = f"""{ingredient_count} ({stack_count} x {ITEM_STACK_SIZE}{remainder_msg})"""
+
+        ingredient_name = items_map[ingredient_id].name
+        logger.debug(
+            f"""{ingredient_count_msg} {ingredient_name} ({ingredient_id}) for {purchased_ingredient.cost}""")
+
+        recipe[ingredient_name] = {"count": ingredient_count_msg,
+                                   "listings": purchased_ingredient.listings}
+    return recipe
 
 
 def generate_export_rows(items_map, profitable_items, recipes_map):
@@ -39,7 +67,7 @@ def generate_export_rows(items_map, profitable_items, recipes_map):
             'roi':                     float(profit_on_cost(profitable_item)),
             'link':                    f"""=HYPERLINK("https://www.gw2bltc.com/en/item/{item.id}")""",
             # TODO: This returns the "total" minimal sell price instead of the minimal sell price per item
-            'profitability_threshold': effective_sell_price(profitable_item.crafting_cost),
+            'profitability_threshold': profitable_item.profitability_threshold,
             'time_gated':              profitable_item.time_gated,
             'needs_ascended':          profitable_item.needs_ascended,
             'craft_level':             recipe.min_rating,

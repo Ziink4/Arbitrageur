@@ -3,7 +3,6 @@ from typing import List, Optional, Dict, Tuple
 
 from logzero import logger
 
-from arbitrageur.prices import effective_buy_price
 from arbitrageur.request import fetch_item_listings
 
 

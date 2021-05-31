@@ -8,7 +8,7 @@ from logzero import logger
 
 from arbitrageur.items import Item, vendor_price, is_common_ascended_material
 from arbitrageur.listings import ItemListings
-from arbitrageur.prices import Price, effective_buy_price
+from arbitrageur.prices import Price, effective_buy_price, effective_sell_price
 from arbitrageur.recipes import Recipe, is_time_gated
 
 
@@ -48,6 +48,7 @@ class ProfitableItem(NamedTuple):
     crafting_steps: Fraction
     count: int
     profit: int
+    profitability_threshold: int
     time_gated: bool
     needs_ascended: bool
     purchased_ingredients: Dict[int, PurchasedIngredient]
@@ -191,6 +192,7 @@ def calculate_crafting_profit(
         tp_listings_map: Dict[int, ItemListings]) -> ProfitableItem:
     listing_profit = 0
     total_crafting_cost = 0
+    profitability_threshold = 0
     crafting_count = 0
     total_crafting_steps = Fraction(0)
     purchased_ingredients = {}
@@ -223,6 +225,7 @@ def calculate_crafting_profit(
         if profit > 0:
             listing_profit += profit
             total_crafting_cost += crafting_cost.cost
+            profitability_threshold = effective_sell_price(crafting_cost.cost)
             crafting_count += 1
         else:
             break
@@ -245,6 +248,7 @@ def calculate_crafting_profit(
         crafting_steps=total_crafting_steps,
         profit=listing_profit,
         count=crafting_count,
+        profitability_threshold=profitability_threshold,
         time_gated=crafting_cost.time_gated,
         needs_ascended=crafting_cost.needs_ascended,
         purchased_ingredients=purchased_ingredients)
