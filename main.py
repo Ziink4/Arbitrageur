@@ -86,7 +86,7 @@ async def retrieve_profitable_items(items_map, recipes_map):
                                                     items_map,
                                                     tp_listings_map)
         profitable_items.append(profitable_item)
-    profitable_items.sort(key=lambda pi: pi.profit)
+    profitable_items.sort(key=lambda pi: pi.profit, reverse=True)
     return profitable_items
 
 
