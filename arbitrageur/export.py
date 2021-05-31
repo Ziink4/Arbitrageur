@@ -77,7 +77,9 @@ def as_text(value):
 
 def export_excel(profitable_items: List[ProfitableItem],
                  items_map: Dict[int, Item],
-                 recipes_map: Dict[int, Recipe]) -> None:
+                 recipes_map: Dict[int, Recipe],
+                 time_gated: bool = False,
+                 needs_ascended: bool = False) -> None:
     logger.info("Exporting profitable items as Excel spreadsheet")
     data = generate_export_rows(items_map, profitable_items, recipes_map)
     if len(data) == 0:
@@ -90,7 +92,8 @@ def export_excel(profitable_items: List[ProfitableItem],
     # add column headings. NB. these must be strings
     ws.append(list(data[0].keys()))
     for row in data:
-        ws.append(list(row.values()))
+        if (time_gated or not row['time_gated']) and (needs_ascended or not row['needs_ascended']):
+            ws.append(list(row.values()))
 
     tab = Table(displayName="Data", ref="A1:" + get_column_letter(ws.max_column) + str(ws.max_row))
 
