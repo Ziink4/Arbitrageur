@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Tuple
 
 from logzero import logger
 
@@ -20,8 +20,9 @@ class ItemListings:
     buys: List[Listing]
     sells: List[Listing]
 
-    def buy(self, count: int) -> Optional[int]:
+    def buy(self, count: int) -> Optional[Tuple[int, Dict[int, int]]]:
         cost = 0
+        listings = {}
         while count > 0:
             if len(self.sells) == 0:
                 return None
@@ -29,12 +30,18 @@ class ItemListings:
             # sells are sorted in descending price
             self.sells[-1].quantity -= 1
             count -= 1
-            cost += self.sells[-1].unit_price
+            unit_price = self.sells[-1].unit_price
+            cost += unit_price
+
+            if unit_price in listings:
+                listings[unit_price] += 1
+            else:
+                listings[unit_price] = 1
 
             if self.sells[-1].quantity == 0:
                 self.sells.pop()
 
-        return cost
+        return cost, listings
 
     def sell(self) -> Optional[int]:
         if len(self.buys) == 0:

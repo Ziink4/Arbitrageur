@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from enum import Enum
 from fractions import Fraction
 from math import floor, ceil
@@ -24,6 +25,23 @@ class CraftingCost(NamedTuple):
     needs_ascended: Optional[bool]
 
 
+@dataclass
+class PurchasedIngredient:
+    count: Fraction
+    cost: int
+    listings: Dict[int, int]
+
+    def buy(self, count: Fraction, cost: int, listings: Dict[int, int]):
+        self.count += count
+        self.cost += cost
+
+        for unit_price, quantity in listings.items():
+            if unit_price in self.listings:
+                self.listings[unit_price] += quantity
+            else:
+                self.listings[unit_price] = quantity
+
+
 class ProfitableItem(NamedTuple):
     id: int
     crafting_cost: int
@@ -32,7 +50,7 @@ class ProfitableItem(NamedTuple):
     profit: int
     time_gated: bool
     needs_ascended: bool
-    purchased_ingredients: Dict[int, Fraction]
+    purchased_ingredients: Dict[int, PurchasedIngredient]
 
 
 def profit_per_item(item: ProfitableItem) -> int:
@@ -211,14 +229,13 @@ def calculate_crafting_profit(
 
         for (item_id, count) in tp_purchases:
             assert item_id in tp_listings_map, f"""Missing detailed prices for {item_id}"""
-            bought = tp_listings_map[item_id].buy(ceil(count))
-            logger.debug(f"""Buying ingredient for {listings.id}({items_map[listings.id].name}) #{crafting_count} : {item_id}({items_map[item_id].name}) x {count} for {bought} """)
-            assert bought is not None
+            buy_price, buy_listings = tp_listings_map[item_id].buy(ceil(count))
+            logger.debug(f"""Buying ingredient for {listings.id}({items_map[listings.id].name}) #{crafting_count} : {item_id}({items_map[item_id].name}) x {count} for {buy_price} """)
 
             if item_id in purchased_ingredients:
-                purchased_ingredients[item_id] += count
+                purchased_ingredients[item_id].buy(count, buy_price, buy_listings)
             else:
-                purchased_ingredients[item_id] = count
+                purchased_ingredients[item_id] = PurchasedIngredient(count, buy_price, buy_listings)
 
         total_crafting_steps += crafting_steps
 

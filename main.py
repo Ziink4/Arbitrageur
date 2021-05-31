@@ -1,4 +1,5 @@
 import asyncio
+import json
 from math import ceil
 
 import logzero
@@ -89,6 +90,48 @@ async def retrieve_profitable_items(items_map, recipes_map):
     return profitable_items
 
 
+async def retrieve_recipe(item_id, items_map, recipes_map):
+    assert item_id in items_map
+    item = items_map[item_id]
+    ingredient_ids = collect_ingredient_ids(item_id, recipes_map)
+    request_listing_item_ids = {item_id}
+    request_listing_item_ids.update(ingredient_ids)
+    tp_listings_map = await retrieve_detailed_tp_listings(list(request_listing_item_ids))
+    assert item_id in tp_listings_map
+    item_listings = tp_listings_map[item_id]
+    profitable_item = calculate_crafting_profit(item_listings,
+                                                recipes_map,
+                                                items_map,
+                                                tp_listings_map)
+    if profitable_item.profit == 0:
+        logger.warn(f"""Item {item_id}({items_map[item_id].name}) is not profitable to craft""")
+        return None
+
+    logger.info(
+        f"""Shopping list for {profitable_item.count} x {item.name} = {profitable_item.profit} profit ({profit_per_crafting_step(profitable_item)} / step) :""")
+    recipe = {}
+    for (ingredient_id, purchased_ingredient) in profitable_item.purchased_ingredients.items():
+        ingredient_count = ceil(purchased_ingredient.count)
+        if ingredient_count < ITEM_STACK_SIZE:
+            ingredient_count_msg = str(ingredient_count)
+        else:
+            stack_count = ingredient_count // ITEM_STACK_SIZE
+            remainder = ingredient_count % ITEM_STACK_SIZE
+            if remainder != 0:
+                remainder_msg = f""" + {remainder}"""
+            else:
+                remainder_msg = ""
+
+            ingredient_count_msg = f"""{ingredient_count} ({stack_count} x {ITEM_STACK_SIZE}{remainder_msg})"""
+
+        logger.info(
+            f"""{ingredient_count_msg} {items_map[ingredient_id].name} ({ingredient_id}) for {purchased_ingredient.cost}""")
+
+        recipe[items_map[ingredient_id].name] = {"count": ingredient_count_msg,
+                                                 "listings": purchased_ingredient.listings}
+    return recipe
+
+
 async def main():
     recipes_path = Path("recipes.json")
     items_path = Path("items.json")
@@ -97,53 +140,15 @@ async def main():
     items_map = await retrieve_items(items_path)
 
     # Change this to any item ID to generate a precise shopping list
-    item_id = 11167
+    item_id = None
 
     if not item_id:
         profitable_items = await retrieve_profitable_items(items_map, recipes_map)
         export_csv(profitable_items, items_map, recipes_map)
         export_excel(profitable_items, items_map, recipes_map)
     else:
-        assert item_id in items_map
-        item = items_map[item_id]
-
-        ingredient_ids = collect_ingredient_ids(item_id, recipes_map)
-
-        request_listing_item_ids = {item_id}
-        request_listing_item_ids.update(ingredient_ids)
-        tp_listings_map = await retrieve_detailed_tp_listings(list(request_listing_item_ids))
-
-        assert item_id in tp_listings_map
-        item_listings = tp_listings_map[item_id]
-        profitable_item = calculate_crafting_profit(item_listings,
-                                                    recipes_map,
-                                                    items_map,
-                                                    tp_listings_map)
-
-        if profitable_item.profit == 0:
-            logger.warn(f"""Item {item_id}({items_map[item_id].name}) is not profitable to craft""")
-            return
-
-        logger.info("============")
-        logger.info(
-            f"""Shopping list for {profitable_item.count} x {item.name} = {profitable_item.profit} profit ({profit_per_crafting_step(profitable_item)} / step)""")
-        logger.info("============")
-
-        for (ingredient_id, ingredient_count_ratio) in profitable_item.purchased_ingredients.items():
-            ingredient_count = ceil(ingredient_count_ratio)
-            if ingredient_count < ITEM_STACK_SIZE:
-                ingredient_count_msg = str(ingredient_count)
-            else:
-                stack_count = ingredient_count // ITEM_STACK_SIZE
-                remainder = ingredient_count % ITEM_STACK_SIZE
-                if remainder != 0:
-                    remainder_msg = f""" + {remainder}"""
-                else:
-                    remainder_msg = ""
-
-                ingredient_count_msg = f"""{ingredient_count} ({stack_count} x {ITEM_STACK_SIZE}{remainder_msg})"""
-
-            logger.info(f"""{ingredient_count_msg} {items_map[ingredient_id].name} ({ingredient_id})""")
+        recipe = await retrieve_recipe(item_id, items_map, recipes_map)
+        logger.info(json.dumps(recipe, indent=2))
 
 
 if __name__ == "__main__":
