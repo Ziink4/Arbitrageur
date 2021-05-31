@@ -1,9 +1,12 @@
+from math import ceil
 from pathlib import Path
 from typing import List, NamedTuple, Dict
 
 from logzero import logger
 
 from arbitrageur.request import request_cached_pages
+
+ITEM_STACK_SIZE = 250  # GW2 uses a "stack size" of 250
 
 
 class RecipeIngredient(NamedTuple):
@@ -75,3 +78,28 @@ def collect_ingredient_ids(item_id: int, recipes_map: Dict[int, Recipe]) -> List
             ids += collect_ingredient_ids(ingredient.item_id, recipes_map)
 
     return ids
+
+
+def format_json_recipe(profitable_item, items_map):
+    recipe = {}
+    for ingredient_id, purchased_ingredient in profitable_item.purchased_ingredients.items():
+        ingredient_count = ceil(purchased_ingredient.count)
+        if ingredient_count < ITEM_STACK_SIZE:
+            ingredient_count_msg = str(ingredient_count)
+        else:
+            stack_count = ingredient_count // ITEM_STACK_SIZE
+            remainder = ingredient_count % ITEM_STACK_SIZE
+            if remainder != 0:
+                remainder_msg = f""" + {remainder}"""
+            else:
+                remainder_msg = ""
+
+            ingredient_count_msg = f"""{ingredient_count} ({stack_count} x {ITEM_STACK_SIZE}{remainder_msg})"""
+
+        ingredient_name = items_map[ingredient_id].name
+        logger.info(
+            f"""{ingredient_count_msg} {ingredient_name} ({ingredient_id}) for {purchased_ingredient.cost}""")
+
+        recipe[ingredient_name] = {"count": ingredient_count_msg,
+                                   "listings": purchased_ingredient.listings}
+    return recipe

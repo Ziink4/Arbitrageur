@@ -12,7 +12,7 @@ from arbitrageur.export import export_csv, export_excel
 from arbitrageur.items import Item, is_restricted, retrieve_items
 from arbitrageur.listings import retrieve_detailed_tp_listings
 from arbitrageur.prices import Price, effective_buy_price, retrieve_tp_prices
-from arbitrageur.recipes import Recipe, collect_ingredient_ids, retrieve_recipes
+from arbitrageur.recipes import Recipe, collect_ingredient_ids, retrieve_recipes, format_json_recipe
 
 from logzero import logger
 
@@ -27,8 +27,6 @@ FILTER_DISCIPLINES = [
     "Tailor",
     "Weaponsmith",
 ]  # only show items craftable by these disciplines
-
-ITEM_STACK_SIZE = 250  # GW2 uses a "stack size" of 250
 
 
 def calculate_profitable_items(items_map: Dict[int, Item],
@@ -109,27 +107,7 @@ async def retrieve_recipe(item_id, items_map, recipes_map):
 
     logger.info(
         f"""Shopping list for {profitable_item.count} x {item.name} = {profitable_item.profit} profit ({profit_per_crafting_step(profitable_item)} / step) :""")
-    recipe = {}
-    for (ingredient_id, purchased_ingredient) in profitable_item.purchased_ingredients.items():
-        ingredient_count = ceil(purchased_ingredient.count)
-        if ingredient_count < ITEM_STACK_SIZE:
-            ingredient_count_msg = str(ingredient_count)
-        else:
-            stack_count = ingredient_count // ITEM_STACK_SIZE
-            remainder = ingredient_count % ITEM_STACK_SIZE
-            if remainder != 0:
-                remainder_msg = f""" + {remainder}"""
-            else:
-                remainder_msg = ""
-
-            ingredient_count_msg = f"""{ingredient_count} ({stack_count} x {ITEM_STACK_SIZE}{remainder_msg})"""
-
-        logger.info(
-            f"""{ingredient_count_msg} {items_map[ingredient_id].name} ({ingredient_id}) for {purchased_ingredient.cost}""")
-
-        recipe[items_map[ingredient_id].name] = {"count": ingredient_count_msg,
-                                                 "listings": purchased_ingredient.listings}
-    return recipe
+    return format_json_recipe(profitable_item, items_map)
 
 
 async def main():

@@ -1,3 +1,4 @@
+import json
 from typing import Dict, List
 
 from openpyxl import Workbook
@@ -7,7 +8,7 @@ from openpyxl.worksheet.table import Table, TableStyleInfo
 from arbitrageur.crafting import ProfitableItem, profit_per_item, profit_on_cost
 from arbitrageur.items import Item
 from arbitrageur.prices import effective_sell_price
-from arbitrageur.recipes import is_time_gated, Recipe
+from arbitrageur.recipes import is_time_gated, Recipe, format_json_recipe
 
 import csv
 from logzero import logger
@@ -42,6 +43,7 @@ def generate_export_rows(items_map, profitable_items, recipes_map):
             'time_gated':              profitable_item.time_gated,
             'needs_ascended':          profitable_item.needs_ascended,
             'craft_level':             recipe.min_rating,
+            'recipe':                  json.dumps(format_json_recipe(profitable_item, items_map), indent=2)
         }
 
         data.append(item_data)
