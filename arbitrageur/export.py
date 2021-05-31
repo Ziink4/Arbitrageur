@@ -14,8 +14,8 @@ from logzero import logger
 
 
 def format_disciplines(disciplines: List[str]) -> str:
-    disciplines = [e[0] if e[0] != 'A' else e[:2] for e in disciplines]
-    return str(disciplines)[2:-2].replace("', '", "/")
+    # Returns the first letter of each discipline, except for Armorsmith (Am) & Artificer (At)
+    return "/".join([e[0] if e[0] != 'A' else e[:3:2] for e in disciplines])
 
 
 def generate_export_rows(items_map, profitable_items, recipes_map):
