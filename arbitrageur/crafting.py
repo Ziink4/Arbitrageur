@@ -211,8 +211,10 @@ def calculate_crafting_profit(
         for (item_id, count) in tp_purchases:
             assert item_id in tp_listings_map, f"""Missing detailed prices for {item_id}"""
             bought = tp_listings_map[item_id].buy(ceil(count))
+            logger.debug(f"""Buying ingredient for {listings.id}({items_map[listings.id].name}) #{crafting_count} : {item_id}({items_map[item_id].name}) x {count} for {bought} """)
             assert bought is not None
 
+        # Used only when generating a shopping list (to-be-implemented)
         if purchased_ingredients is not None:
             for (item_id, count) in tp_purchases:
                 if item_id in purchased_ingredients:
@@ -236,15 +238,19 @@ def select_lowest_cost(crafting_cost: Optional[int],
                        tp_cost: Optional[int],
                        vendor_cost: Optional[int],
                        time_gated: Optional[bool],
-                       needs_ascended: Optional[bool]) -> CraftingCost:
+                       needs_ascended: Optional[bool]) -> Optional[CraftingCost]:
     cost = inner_min(inner_min(tp_cost, crafting_cost), vendor_cost)
+    if cost is None:
+        return None
+
     # give trading post precedence over crafting if costs are equal
-    if tp_cost is not None:
+    if cost == tp_cost:
         source = Source.TradingPost
-    elif crafting_cost is not None:
+    elif cost == crafting_cost:
         source = Source.Crafting
     else:
         source = Source.Vendor
+
     return CraftingCost(cost, source, time_gated, needs_ascended)
 
 
