@@ -4,6 +4,7 @@ from typing import List, NamedTuple, Dict
 
 from logzero import logger
 
+from arbitrageur.crafting import profit_per_crafting_step
 from arbitrageur.request import request_cached_pages
 
 ITEM_STACK_SIZE = 250  # GW2 uses a "stack size" of 250
@@ -81,6 +82,9 @@ def collect_ingredient_ids(item_id: int, recipes_map: Dict[int, Recipe]) -> List
 
 
 def format_json_recipe(profitable_item, items_map):
+    logger.debug(
+        f"""Shopping list for {profitable_item.count} x {items_map[profitable_item.id].name} = {profitable_item.profit} profit ({profit_per_crafting_step(profitable_item)} / step) :""")
+
     recipe = {}
     for ingredient_id, purchased_ingredient in profitable_item.purchased_ingredients.items():
         ingredient_count = ceil(purchased_ingredient.count)
@@ -97,7 +101,7 @@ def format_json_recipe(profitable_item, items_map):
             ingredient_count_msg = f"""{ingredient_count} ({stack_count} x {ITEM_STACK_SIZE}{remainder_msg})"""
 
         ingredient_name = items_map[ingredient_id].name
-        logger.info(
+        logger.debug(
             f"""{ingredient_count_msg} {ingredient_name} ({ingredient_id}) for {purchased_ingredient.cost}""")
 
         recipe[ingredient_name] = {"count": ingredient_count_msg,
