@@ -1,9 +1,12 @@
 import asyncio
+from math import ceil
+
 import logzero
 from pathlib import Path
 from typing import Dict, List, Tuple
 
-from arbitrageur.crafting import calculate_estimated_min_crafting_cost, calculate_crafting_profit
+from arbitrageur.crafting import calculate_estimated_min_crafting_cost, calculate_crafting_profit, \
+    profit_per_crafting_step
 from arbitrageur.export import export_csv, export_excel
 from arbitrageur.items import Item, is_restricted, retrieve_items
 from arbitrageur.listings import retrieve_detailed_tp_listings
@@ -64,6 +67,28 @@ def calculate_profitable_items(items_map: Dict[int, Item],
     return ingredient_ids, profitable_item_ids
 
 
+async def retrieve_profitable_items(items_map, recipes_map):
+    tp_prices_map = await retrieve_tp_prices()
+    ingredient_ids, profitable_item_ids = calculate_profitable_items(items_map,
+                                                                     recipes_map,
+                                                                     tp_prices_map)
+    request_listing_item_ids = set(profitable_item_ids)
+    request_listing_item_ids.update(ingredient_ids)
+    tp_listings_map = await retrieve_detailed_tp_listings(list(request_listing_item_ids))
+    logger.info("Computing precise crafting profits")
+    profitable_items = []
+    for item_id in profitable_item_ids:
+        assert item_id in tp_listings_map
+        item_listings = tp_listings_map[item_id]
+        profitable_item = calculate_crafting_profit(item_listings,
+                                                    recipes_map,
+                                                    items_map,
+                                                    tp_listings_map)
+        profitable_items.append(profitable_item)
+    profitable_items.sort(key=lambda pi: pi.profit)
+    return profitable_items
+
+
 async def main():
     recipes_path = Path("recipes.json")
     items_path = Path("items.json")
@@ -71,31 +96,54 @@ async def main():
     recipes_map = await retrieve_recipes(recipes_path)
     items_map = await retrieve_items(items_path)
 
-    tp_prices_map = await retrieve_tp_prices()
+    # Change this to any item ID to generate a precise shopping list
+    item_id = 11167
 
-    ingredient_ids, profitable_item_ids = calculate_profitable_items(items_map,
-                                                                     recipes_map,
-                                                                     tp_prices_map)
+    if not item_id:
+        profitable_items = await retrieve_profitable_items(items_map, recipes_map)
+        export_csv(profitable_items, items_map, recipes_map)
+        export_excel(profitable_items, items_map, recipes_map)
+    else:
+        assert item_id in items_map
+        item = items_map[item_id]
 
-    request_listing_item_ids = set(profitable_item_ids)
-    request_listing_item_ids.update(ingredient_ids)
-    tp_listings_map = await retrieve_detailed_tp_listings(list(request_listing_item_ids))
+        ingredient_ids = collect_ingredient_ids(item_id, recipes_map)
 
-    logger.info("Computing precise crafting profits")
-    profitable_items = []
-    for item_id in profitable_item_ids:
+        request_listing_item_ids = {item_id}
+        request_listing_item_ids.update(ingredient_ids)
+        tp_listings_map = await retrieve_detailed_tp_listings(list(request_listing_item_ids))
+
         assert item_id in tp_listings_map
         item_listings = tp_listings_map[item_id]
-        profitable_item, _ = calculate_crafting_profit(item_listings,
-                                                       recipes_map,
-                                                       items_map,
-                                                       tp_listings_map,
-                                                       None)
-        profitable_items.append(profitable_item)
+        profitable_item = calculate_crafting_profit(item_listings,
+                                                    recipes_map,
+                                                    items_map,
+                                                    tp_listings_map)
 
-    profitable_items.sort(key=lambda pi: pi.profit)
-    export_csv(profitable_items, items_map, recipes_map)
-    export_excel(profitable_items, items_map, recipes_map)
+        if profitable_item.profit == 0:
+            logger.warn(f"""Item {item_id}({items_map[item_id].name}) is not profitable to craft""")
+            return
+
+        logger.info("============")
+        logger.info(
+            f"""Shopping list for {profitable_item.count} x {item.name} = {profitable_item.profit} profit ({profit_per_crafting_step(profitable_item)} / step)""")
+        logger.info("============")
+
+        for (ingredient_id, ingredient_count_ratio) in profitable_item.purchased_ingredients.items():
+            ingredient_count = ceil(ingredient_count_ratio)
+            if ingredient_count < ITEM_STACK_SIZE:
+                ingredient_count_msg = str(ingredient_count)
+            else:
+                stack_count = ingredient_count // ITEM_STACK_SIZE
+                remainder = ingredient_count % ITEM_STACK_SIZE
+                if remainder != 0:
+                    remainder_msg = f""" + {remainder}"""
+                else:
+                    remainder_msg = ""
+
+                ingredient_count_msg = f"""{ingredient_count} ({stack_count} x {ITEM_STACK_SIZE}{remainder_msg})"""
+
+            logger.info(f"""{ingredient_count_msg} {items_map[ingredient_id].name} ({ingredient_id})""")
 
 
 if __name__ == "__main__":

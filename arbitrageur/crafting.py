@@ -32,6 +32,7 @@ class ProfitableItem(NamedTuple):
     profit: int
     time_gated: bool
     needs_ascended: bool
+    purchased_ingredients: Dict[int, Fraction]
 
 
 def profit_per_item(item: ProfitableItem) -> int:
@@ -169,12 +170,12 @@ def calculate_crafting_profit(
         listings: ItemListings,
         recipes_map: Dict[int, Recipe],
         items_map: Dict[int, Item],
-        tp_listings_map: Dict[int, ItemListings],
-        purchased_ingredients: Optional[Dict[int, Fraction]]) -> Tuple[ProfitableItem, Optional[Dict[int, Fraction]]]:
+        tp_listings_map: Dict[int, ItemListings]) -> ProfitableItem:
     listing_profit = 0
     total_crafting_cost = 0
     crafting_count = 0
     total_crafting_steps = Fraction(0)
+    purchased_ingredients = {}
 
     while True:
         logger.debug(f"""Calculating profits for {listings.id}({items_map[listings.id].name}) #{crafting_count}""")
@@ -214,13 +215,10 @@ def calculate_crafting_profit(
             logger.debug(f"""Buying ingredient for {listings.id}({items_map[listings.id].name}) #{crafting_count} : {item_id}({items_map[item_id].name}) x {count} for {bought} """)
             assert bought is not None
 
-        # Used only when generating a shopping list (to-be-implemented)
-        if purchased_ingredients is not None:
-            for (item_id, count) in tp_purchases:
-                if item_id in purchased_ingredients:
-                    purchased_ingredients[item_id] += count
-                else:
-                    purchased_ingredients[item_id] = count
+            if item_id in purchased_ingredients:
+                purchased_ingredients[item_id] += count
+            else:
+                purchased_ingredients[item_id] = count
 
         total_crafting_steps += crafting_steps
 
@@ -231,7 +229,8 @@ def calculate_crafting_profit(
         profit=listing_profit,
         count=crafting_count,
         time_gated=crafting_cost.time_gated,
-        needs_ascended=crafting_cost.needs_ascended), purchased_ingredients
+        needs_ascended=crafting_cost.needs_ascended,
+        purchased_ingredients=purchased_ingredients)
 
 
 def select_lowest_cost(crafting_cost: Optional[int],
