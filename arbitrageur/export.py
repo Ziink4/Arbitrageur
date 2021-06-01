@@ -147,6 +147,6 @@ def export_excel(profitable_items: List[ProfitableItem],
     # Adjusts column width
     for column_cells in ws.columns:
         length = max(len(as_text(cell.value)) for cell in column_cells)
-        ws.column_dimensions[column_cells[0].column_letter].width = length * 0.8 + 5
+        ws.column_dimensions[column_cells[0].column_letter].width = min(length * 0.8 + 5, 80)
 
     wb.save("export.xlsx")
