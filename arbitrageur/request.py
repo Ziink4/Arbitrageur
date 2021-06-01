@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import List, Any, Tuple
+from typing import List, Any, Tuple, Optional
 
 import aiohttp
 import asyncio
@@ -40,15 +40,18 @@ async def fetch_item_listings(item_ids: List[int]) -> List[Any]:
     return tp_listings
 
 
-async def request_page(url_path: str, page_no: int) -> Tuple[int, Any]:
+async def request_page(url_path: str, page_no: int) -> Tuple[Optional[int], Any]:
     url = f"""https://api.guildwars2.com/v2/{url_path}?page={page_no}&page_size={MAX_PAGE_SIZE}"""
     logger.info(f"""Fetching {url}""")
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
-            assert page_no > 0 or "X-Page-Total" in response.headers
-            page_total_str = response.headers.get("X-Page-Total")
-            page_total = int(page_total_str)
+            page_total = None
+            if page_no == 0:
+                assert "X-Page-Total" in response.headers, f"""First page of {url_path} is missing page count, please retry later """
+                page_total_str = response.headers.get("X-Page-Total")
+                page_total = int(page_total_str)
+
             return page_total, await response.json()
 
 
