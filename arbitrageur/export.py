@@ -145,8 +145,24 @@ def export_excel(profitable_items: List[ProfitableItem],
             ws[f"{col_letter}{i}"].number_format = number_format
 
     # Adjusts column width
-    for column_cells in ws.columns:
-        length = max(len(as_text(cell.value)) for cell in column_cells)
-        ws.column_dimensions[column_cells[0].column_letter].width = min(length * 0.8 + 5, 80)
+    col_dim = [
+        ('id', 8),
+        ('name', 30),
+        ('rarity', 5),
+        ('disciplines', 10),
+        ('profit', 10),
+        ('crafting_cost', 11),
+        ('count', 10),
+        ('avg_profit_per_item', 8),
+        ('roi', 7),
+        ('link', 5),
+        ('profitability_threshold', 8),
+        ('time_gated', 7),
+        ('needs_ascended', 7),
+        ('craft_level', 5),
+        ('recipe', 80)
+    ]
+    for i, column_cells in enumerate(ws.columns):
+        ws.column_dimensions[column_cells[0].column_letter].width = col_dim[i][1]
 
     wb.save("export.xlsx")
