@@ -52,11 +52,11 @@ async def request_page(url_path: str, page_no: int) -> Tuple[Optional[int], Any]
                 page_total_str = response.headers.get("X-Page-Total")
                 page_total = int(page_total_str)
 
-            txt = await response.text()
-            if "page out of range" in txt:
+            data = await response.json()
+            if "text" in data:
                 return page_total, []
 
-            return page_total, await response.json()
+            return page_total, data
 
 
 async def request_all_pages(url_path: str):
