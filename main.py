@@ -122,7 +122,7 @@ async def main():
     if not item_id:
         profitable_items = await retrieve_profitable_items(items_map, recipes_map)
         export_csv(profitable_items, items_map, recipes_map)
-        export_excel(profitable_items, items_map, recipes_map)
+        export_excel(profitable_items, items_map, recipes_map, time_gated=False, needs_ascended=False)
     else:
         recipe = await retrieve_recipe(item_id, items_map, recipes_map)
         logger.info(json.dumps(recipe, indent=2))
