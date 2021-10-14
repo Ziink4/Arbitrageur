@@ -53,7 +53,7 @@ async def request_page(url_path: str, page_no: int) -> Tuple[Optional[int], Any]
                 page_total = int(page_total_str)
 
             txt = await response.text()
-            if txt.contains("page out of range"):
+            if "page out of range" in txt:
                 return page_total, []
 
             return page_total, await response.json()
