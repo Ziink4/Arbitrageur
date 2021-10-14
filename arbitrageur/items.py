@@ -32,8 +32,7 @@ class Item(NamedTuple):
 def vendor_price(item: Item) -> Optional[int]:
     name = item.name
 
-    if any([name == "Thermocatalytic Reagent",
-           name == "Spool of Jute Thread",
+    if any([name == "Spool of Jute Thread",
            name == "Spool of Wool Thread",
            name == "Spool of Cotton Thread",
            name == "Spool of Linen Thread",
@@ -62,6 +61,8 @@ def vendor_price(item: Item) -> Optional[int]:
             return item.vendor_value * 8
         else:
             return None
+    elif name == "Thermocatalytic Reagent":
+        return 150
     elif name == "Pile of Compost Starter":
         return 150
     elif name == "Pile of Powdered Gelatin Mix":
