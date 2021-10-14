@@ -52,6 +52,10 @@ async def request_page(url_path: str, page_no: int) -> Tuple[Optional[int], Any]
                 page_total_str = response.headers.get("X-Page-Total")
                 page_total = int(page_total_str)
 
+            txt = await response.text()
+            if txt.contains("page out of range"):
+                return page_total, []
+
             return page_total, await response.json()
 
 
@@ -59,7 +63,8 @@ async def request_all_pages(url_path: str):
     # update page total with first request
     page_total, items = await request_page(url_path, page_no=0)
 
-    tasks = [request_page(url_path, page_no) for page_no in range(1, page_total)]
+    # try fetching one extra page in case page total increased while paginating
+    tasks = [request_page(url_path, page_no) for page_no in range(1, page_total + 1)]
     results = await asyncio.gather(*tasks)
 
     for _, items_in_page in results:
