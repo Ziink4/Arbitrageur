@@ -15,15 +15,11 @@ class Item(NamedTuple):
     id: int
     chat_link: str
     name: str
-    icon: Optional[str]
-    description: Optional[str]
     type_name: str
     rarity: str
     level: int
     vendor_value: int
-    default_skin: Optional[int]
     flags: List[str]
-    game_types: List[str]
     restrictions: List[str]
     upgrades_into: Optional[List[ItemUpgrade]]
     upgrades_from: Optional[List[ItemUpgrade]]
@@ -96,15 +92,11 @@ async def retrieve_items(items_path: Path) -> Dict[int, Item]:
     items_map = {item["id"]: Item(id=item["id"],
                                   chat_link=item["chat_link"],
                                   name=item["name"],
-                                  icon=item.get("icon"),
-                                  description=item.get("description"),
                                   type_name=item["type"],
                                   rarity=item["rarity"],
                                   level=item["level"],
                                   vendor_value=item["vendor_value"],
-                                  default_skin=item.get("default_skin"),
                                   flags=item["flags"],
-                                  game_types=item["game_types"],
                                   restrictions=item["restrictions"],
                                   upgrades_into=None if "upgrades_into" not in item else [
                                       ItemUpgrade(item_id=i["item_id"], upgrade=i["upgrade"]) for i in
