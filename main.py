@@ -57,7 +57,10 @@ def calculate_profitable_items(items_map: Dict[int, Item],
         if tp_prices.sells.quantity == 0:
             continue
 
-        crafting_cost = calculate_estimated_min_crafting_cost(item_id, recipes_map, items_map, tp_prices_map)
+        if item_id in items_map:
+            crafting_cost = calculate_estimated_min_crafting_cost(item_id, recipes_map, items_map, tp_prices_map)
+        else:
+            crafting_cost = None
         if crafting_cost is not None:
             if effective_buy_price(tp_prices.buys.unit_price) > crafting_cost.cost:
                 profitable_item_ids.append(item_id)

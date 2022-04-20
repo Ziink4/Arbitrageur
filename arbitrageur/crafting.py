@@ -281,7 +281,7 @@ def calculate_estimated_min_crafting_cost(
         recipes_map: Dict[int, Recipe],
         items_map: Dict[int, Item],
         tp_prices_map: Dict[int, Price]) -> Optional[CraftingCost]:
-    assert item_id in items_map
+    assert item_id in items_map, f"{item_id} not in item map"
     item = items_map.get(item_id)
 
     crafting_cost = None
